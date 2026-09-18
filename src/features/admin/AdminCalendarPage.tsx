@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import {
   addDays,
@@ -79,6 +79,7 @@ function firstName(name: string): string {
 
 export default function AdminCalendarPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [visible, setVisible] = useState<Record<AdminBookingStatus, boolean>>({
@@ -88,6 +89,15 @@ export default function AdminCalendarPage() {
     checked_out: true,
     cancelled: true,
   })
+
+  useEffect(() => {
+    const dateParam = searchParams.get('date')
+    if (!dateParam) return
+    const parsed = parseISO(dateParam)
+    if (Number.isNaN(parsed.getTime())) return
+    setSelectedDate(parsed)
+    setCurrentMonth(parsed)
+  }, [searchParams])
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: queryKeys.adminBookings({ scope: 'calendar' }),

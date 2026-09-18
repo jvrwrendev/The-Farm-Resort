@@ -24,7 +24,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { BookingActions } from '@/features/admin/BookingActions'
-import { StatCard, StatusBadge } from '@/features/admin/components'
+import { StatCard, StatusBadge, UpcomingCalendarCard } from '@/features/admin/components'
 import { getAdminStats, getBookings } from '@/services/admin.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
@@ -58,14 +58,17 @@ export default function AdminDashboardPage() {
         />
       </div>
 
-      <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle className="font-display text-lg">Recent bookings</CardTitle>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/admin/bookings">View all</Link>
-          </Button>
-        </CardHeader>
-        <CardContent className="px-0">
+      <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
+        <UpcomingCalendarCard bookings={bookings} />
+
+        <Card className="lg:flex-1 lg:min-w-0">
+          <CardHeader className="flex-row items-center justify-between space-y-0">
+            <CardTitle className="font-display text-lg">Recent bookings</CardTitle>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/admin/bookings">View all</Link>
+            </Button>
+          </CardHeader>
+          <CardContent className="px-0">
           <Table>
             <TableHeader>
               <TableRow>
@@ -119,7 +122,8 @@ export default function AdminDashboardPage() {
             </TableBody>
           </Table>
         </CardContent>
-      </Card>
+        </Card>
+      </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
