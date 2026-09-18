@@ -362,6 +362,8 @@ export interface AdminBooking {
   accommodationId: string
   checkIn: string
   checkOut: string
+  checkInPeriod?: 'AM' | 'PM'
+  checkOutPeriod?: 'AM' | 'PM'
   adults: number
   children: number
   specialRequests: string
@@ -440,7 +442,15 @@ export interface CreateBookingInput {
   contactNumber: string
   checkIn: string
   checkOut: string
+  checkInPeriod?: 'AM' | 'PM'
+  checkOutPeriod?: 'AM' | 'PM'
   adults: number
   children: number
   specialRequests?: string
+}
+
+export interface AdminCredentials {
+  email: string
+  password: string
+  name: string
 }

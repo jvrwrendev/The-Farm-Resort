@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  UserCog,
   Users,
   X,
 } from 'lucide-react'
@@ -40,6 +41,7 @@ const NAV_SECTIONS = [
     items: [
       { to: '/admin/reports', label: 'Reports', icon: BarChart3 },
       { to: '/admin/settings', label: 'Settings', icon: Settings },
+      { to: '/admin/account', label: 'Account', icon: UserCog },
     ],
   },
 ]
@@ -155,6 +157,14 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 export function AdminLayout({ children, title }: { children: ReactNode; title?: string }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
 
+  useEffect(() => {
+    if (!drawerOpen) return
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [drawerOpen])
+
   return (
     <div className="min-h-screen bg-muted/30">
       <div className="flex">
@@ -164,25 +174,27 @@ export function AdminLayout({ children, title }: { children: ReactNode; title?: 
           </div>
         </aside>
 
-        <div className="flex-1">
+        <div className="flex min-w-0 flex-1 flex-col">
           <header className="sticky top-0 z-40 border-b bg-background/80 px-4 py-4 backdrop-blur-xl lg:px-8">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-3">
+              <div className="flex min-w-0 items-center gap-3">
                 <button
                   type="button"
-                  className="rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden"
+                  className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden"
                   onClick={() => setDrawerOpen(true)}
                   aria-label="Open menu"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
-                <h1 className="font-display text-xl font-semibold">{title ?? 'Dashboard'}</h1>
+                <h1 className="truncate font-display text-lg font-semibold sm:text-xl">
+                  {title ?? 'Dashboard'}
+                </h1>
               </div>
               <ThemeToggle />
             </div>
           </header>
 
-          <div className="p-4 lg:p-8">{children}</div>
+          <div className="min-w-0 flex-1 p-4 lg:p-8">{children}</div>
         </div>
       </div>
 

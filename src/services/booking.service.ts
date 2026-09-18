@@ -70,6 +70,8 @@ export async function createBooking(input: CreateBookingInput): Promise<AdminBoo
     accommodationId: db.accommodation.id,
     checkIn,
     checkOut,
+    checkInPeriod: input.checkInPeriod ?? 'PM',
+    checkOutPeriod: input.checkOutPeriod ?? 'PM',
     adults: input.adults,
     children: input.children,
     specialRequests: (input.specialRequests ?? '').trim(),

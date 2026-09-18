@@ -4,13 +4,24 @@ import {
   DEFAULT_ACCOMMODATION_NAME,
   DEFAULT_MAX_GUESTS,
   DEFAULT_PRICE_PER_NIGHT,
+  MOCK_ADMIN_EMAIL,
+  MOCK_ADMIN_NAME,
+  MOCK_ADMIN_PASSWORD,
 } from '@/lib/constants'
 import { DEFAULT_ACCOMMODATION_IMAGES } from '@/lib/images'
 import { uid } from '@/lib/utils'
-import type { Accommodation, AdminBooking, AdminBookingStatus, AppSettings } from '@/types'
+import type { Accommodation, AdminBooking, AdminBookingStatus, AdminCredentials, AppSettings } from '@/types'
 
 const dateOffset = (days: number) => format(addDays(new Date(), days), 'yyyy-MM-dd')
 const nowIso = () => new Date().toISOString()
+
+export function createSeedAdminAccount(): AdminCredentials {
+  return {
+    email: MOCK_ADMIN_EMAIL,
+    password: MOCK_ADMIN_PASSWORD,
+    name: MOCK_ADMIN_NAME,
+  }
+}
 
 export function createSeedAccommodation(): Accommodation {
   const created = nowIso()

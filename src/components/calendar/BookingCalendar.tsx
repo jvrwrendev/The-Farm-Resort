@@ -102,7 +102,7 @@ export function BookingCalendar({
   return (
     <div
       className={cn(
-        'overflow-hidden rounded-2xl border bg-card shadow-sm',
+        'overflow-hidden rounded-2xl border bg-card',
         className,
       )}
     >
@@ -271,7 +271,7 @@ export function AvailabilityDetails({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -4 }}
           transition={{ duration: 0.2 }}
-          className="mt-4 overflow-hidden rounded-2xl border bg-card shadow-sm"
+          className="mt-4 overflow-hidden rounded-2xl border bg-card"
         >
           <div className="flex items-start justify-between gap-4 border-b bg-secondary/40 px-5 py-4">
             <div>

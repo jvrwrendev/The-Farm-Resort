@@ -11,4 +11,5 @@ export const queryKeys = {
   gallery: ['gallery'] as const,
   policies: ['policies'] as const,
   calendarEvents: (from: string, to: string) => ['calendar-events', from, to] as const,
+  adminAccount: ['admin-account'] as const,
 }

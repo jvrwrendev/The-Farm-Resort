@@ -11,6 +11,7 @@ interface AuthContextType {
   signIn: (email: string, password: string) => Promise<void>
   signOut: () => void
   refreshProfile: () => Promise<void>
+  refreshSession: (user: MockAdminUser) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -62,6 +63,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(readSession())
   }, [])
 
+  const refreshSession = useCallback((next: MockAdminUser) => {
+    setUser(next)
+    try {
+      window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(next))
+    } catch {
+      // Session stays in memory if storage is unavailable.
+    }
+  }, [])
+
   return (
     <AuthContext.Provider
       value={{
@@ -72,6 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signIn,
         signOut,
         refreshProfile,
+        refreshSession,
       }}
     >
       {children}

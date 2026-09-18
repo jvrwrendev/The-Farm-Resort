@@ -330,7 +330,7 @@ export default function AdminCalendarPage() {
                 </div>
               ) : (
                 selectedDayBookings.map((booking) => (
-                  <div key={booking.id} className="rounded-xl border bg-card p-4 shadow-sm">
+                  <div key={booking.id} className="rounded-xl border bg-card p-4">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div>
                         <p className="font-medium">{booking.customerName}</p>

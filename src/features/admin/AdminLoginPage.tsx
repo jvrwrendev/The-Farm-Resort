@@ -1,13 +1,16 @@
 import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, Lock, Mail, ShieldCheck } from 'lucide-react'
+import { Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { BRAND_LOGO_ALT, BRAND_LOGO_URL, BRAND_NAME } from '@/lib/brand'
-import { MOCK_ADMIN_EMAIL, MOCK_ADMIN_PASSWORD } from '@/lib/constants'
+import { MOCK_ADMIN_EMAIL } from '@/lib/constants'
+import { queryKeys } from '@/lib/queryKeys'
+import { getAdminAccount } from '@/services/auth.service'
 
 export default function AdminLoginPage() {
   const { user, signIn } = useAuth()
@@ -18,6 +21,9 @@ export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [submitting, setSubmitting] = useState(false)
+
+  const accountQuery = useQuery({ queryKey: queryKeys.adminAccount, queryFn: getAdminAccount })
+  const accountEmail = accountQuery.data?.email ?? MOCK_ADMIN_EMAIL
 
   if (user) {
     return <Navigate to="/admin/dashboard" replace />
@@ -47,52 +53,51 @@ export default function AdminLoginPage() {
           <span className="font-display text-xl font-semibold">{BRAND_NAME}</span>
         </Link>
 
-        <Card className="shadow-sm">
+        <Card>
           <CardHeader className="space-y-1">
             <CardTitle className="flex items-center gap-2 font-display text-2xl">
               <ShieldCheck className="h-5 w-5 text-primary" />
-              Admin Sign In
+              Admin Login
             </CardTitle>
-            <CardDescription>Manage bookings, accommodation, and reports.</CardDescription>
+            <CardDescription>Sign in to manage bookings, rooms, services, and site content.</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email">Email or username</Label>
-                <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="text"
-                    autoComplete="username"
-                    placeholder="admin@thefarm.ph"
-                    className="pl-9"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                  />
-                </div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="admin@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <p className="text-xs text-muted-foreground">
+                  Demo credentials: <span className="font-mono text-foreground">{accountEmail}</span>
+                  {' / '}
+                  <span className="font-mono text-foreground">admin123</span>
+                </p>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
-                    placeholder="Enter your password"
-                    className="pl-9 pr-10"
+                    placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
                   <button
                     type="button"
-                    onClick={() => setShowPassword((value) => !value)}
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
@@ -100,20 +105,15 @@ export default function AdminLoginPage() {
               </div>
 
               {error && (
-                <p className="rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <p role="alert" className="text-sm text-destructive">
                   {error}
                 </p>
               )}
 
-              <Button type="submit" className="w-full" loading={submitting}>
-                Sign In
+              <Button type="submit" className="w-full" disabled={submitting}>
+                {submitting ? 'Signing in...' : 'Sign in'}
               </Button>
             </form>
-
-            <div className="mt-5 rounded-lg border border-dashed bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-              <p className="font-medium text-foreground">Demo credentials</p>
-              <p className="mt-1">{MOCK_ADMIN_EMAIL} / {MOCK_ADMIN_PASSWORD}</p>
-            </div>
           </CardContent>
         </Card>
 

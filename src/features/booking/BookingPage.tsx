@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { format } from 'date-fns'
+import { addYears, format, parseISO } from 'date-fns'
 import { toast } from 'sonner'
 import {
   BadgeCheck,
@@ -21,13 +21,51 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { DatePickerField } from '@/features/booking/DatePickerField'
 import { getAccommodation } from '@/services/accommodation.service'
 import { createBooking, isRangeAvailable } from '@/services/booking.service'
+import { getCalendarEvents } from '@/services/resort.service'
 import { queryKeys } from '@/lib/queryKeys'
-import { formatCurrency, nightsBetween } from '@/lib/utils'
+import { cn, formatCurrency, nightsBetween } from '@/lib/utils'
 import { bookingSchema, type BookingFormValues } from '@/features/booking/booking-schema'
 
 const today = format(new Date(), 'yyyy-MM-dd')
+const maxBookingDate = format(addYears(new Date(), 1), 'yyyy-MM-dd')
+
+const PERIODS = ['AM', 'PM'] as const
+
+type Period = (typeof PERIODS)[number]
+
+function PeriodToggle({
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  value: Period
+  onChange: (period: Period) => void
+  ariaLabel: string
+}) {
+  return (
+    <div role="group" aria-label={ariaLabel} className="grid grid-cols-2 gap-1 rounded-lg border bg-muted/60 p-1">
+      {PERIODS.map((period) => (
+        <button
+          key={period}
+          type="button"
+          aria-pressed={value === period}
+          className={cn(
+            'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+            value === period
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+          onClick={() => onChange(period)}
+        >
+          {period}
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export default function BookingPage() {
   const navigate = useNavigate()
@@ -38,10 +76,19 @@ export default function BookingPage() {
     queryFn: getAccommodation,
   })
 
+  const { data: events = [] } = useQuery({
+    queryKey: queryKeys.calendarEvents(today, maxBookingDate),
+    queryFn: () => getCalendarEvents(today, maxBookingDate),
+    staleTime: 30_000,
+  })
+
+  const occupied = useMemo(() => new Set(events.map((event) => event.event_date)), [events])
+
   const {
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<BookingFormValues>({
     resolver: zodResolver(bookingSchema) as Resolver<BookingFormValues>,
@@ -50,7 +97,9 @@ export default function BookingPage() {
       email: '',
       contactNumber: '',
       checkIn: '',
+      checkInPeriod: 'PM',
       checkOut: '',
+      checkOutPeriod: 'PM',
       adults: 2,
       children: 0,
       specialRequests: '',
@@ -59,6 +108,8 @@ export default function BookingPage() {
 
   const checkIn = watch('checkIn')
   const checkOut = watch('checkOut')
+  const checkInPeriod = watch('checkInPeriod')
+  const checkOutPeriod = watch('checkOutPeriod')
   const adults = Number(watch('adults')) || 0
   const children = Number(watch('children')) || 0
   const totalGuests = adults + children
@@ -90,6 +141,33 @@ export default function BookingPage() {
     },
   })
 
+  const rangeCrossesOccupied = (from: string, to: string): boolean => {
+    const start = parseISO(from)
+    const end = parseISO(to)
+    const cursor = new Date(start)
+    cursor.setDate(cursor.getDate() + 1)
+    while (cursor < end) {
+      if (occupied.has(format(cursor, 'yyyy-MM-dd'))) return true
+      cursor.setDate(cursor.getDate() + 1)
+    }
+    return false
+  }
+
+  const handleCheckInChange = (key: string) => {
+    if (checkOut && checkOut <= key) {
+      setValue('checkOut', '', { shouldValidate: true })
+    }
+    setValue('checkIn', key, { shouldValidate: true })
+  }
+
+  const handleCheckOutChange = (key: string) => {
+    setValue('checkOut', key, { shouldValidate: true })
+  }
+
+  const setPeriod = (field: 'checkInPeriod' | 'checkOutPeriod', period: Period) => {
+    setValue(field, period, { shouldDirty: true })
+  }
+
   const onSubmit = (values: BookingFormValues) => {
     if (capacityExceeded) {
       toast.error(`This accommodation hosts up to ${maxGuests} guests.`)
@@ -105,6 +183,8 @@ export default function BookingPage() {
       contactNumber: values.contactNumber,
       checkIn: values.checkIn,
       checkOut: values.checkOut,
+      checkInPeriod: values.checkInPeriod,
+      checkOutPeriod: values.checkOutPeriod,
       adults: Number(values.adults),
       children: Number(values.children),
       specialRequests: values.specialRequests ?? '',
@@ -113,12 +193,23 @@ export default function BookingPage() {
 
   const summary = useMemo(
     () => [
-      { label: 'Dates', value: nights > 0 ? `${format(new Date(checkIn), 'MMM d, yyyy')} — ${format(new Date(checkOut), 'MMM d, yyyy')}` : 'Select dates' },
+      {
+        label: 'Check-in',
+        value: checkIn
+          ? `${format(parseISO(checkIn), 'EEE, MMM d, yyyy')} · ${checkInPeriod}`
+          : 'Select check-in date',
+      },
+      {
+        label: 'Check-out',
+        value: checkOut
+          ? `${format(parseISO(checkOut), 'EEE, MMM d, yyyy')} · ${checkOutPeriod}`
+          : 'Select check-out date',
+      },
       { label: 'Nights', value: nights > 0 ? String(nights) : '—' },
       { label: 'Guests', value: totalGuests > 0 ? `${totalGuests} (${adults} adults, ${children} children)` : '—' },
       { label: 'Price per night', value: pricePerNight ? formatCurrency(pricePerNight) : '—' },
     ],
-    [checkIn, checkOut, nights, totalGuests, adults, children, pricePerNight],
+    [checkIn, checkOut, checkInPeriod, checkOutPeriod, nights, totalGuests, adults, children, pricePerNight],
   )
 
   return (
@@ -197,14 +288,62 @@ export default function BookingPage() {
                       <Label htmlFor="contactNumber">Contact number</Label>
                       <Input id="contactNumber" placeholder="+63 9XX XXX XXXX" error={errors.contactNumber?.message} {...register('contactNumber')} />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="checkIn">Check-in</Label>
-                      <Input id="checkIn" type="date" min={today} error={errors.checkIn?.message} {...register('checkIn')} />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <Label>Check-in</Label>
+                        <DatePickerField
+                          value={checkIn}
+                          placeholder="Select check-in date"
+                          ariaLabel="Pick check-in date"
+                          occupied={occupied}
+                          disabledDate={(date) =>
+                            (checkOut ? format(date, 'yyyy-MM-dd') >= checkOut : false)
+                          }
+                          onChange={handleCheckInChange}
+                        />
+                        <PeriodToggle
+                          value={checkInPeriod}
+                          ariaLabel="Check-in AM or PM"
+                          onChange={(period) => setPeriod('checkInPeriod', period)}
+                        />
+                        {errors.checkIn?.message && (
+                          <p className="text-sm text-destructive">{errors.checkIn.message}</p>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Check-out</Label>
+                        <DatePickerField
+                          value={checkOut}
+                          placeholder="Select check-out date"
+                          ariaLabel="Pick check-out date"
+                          occupied={occupied}
+                          disabledDate={(date) => {
+                            const key = format(date, 'yyyy-MM-dd')
+                            if (checkIn && key <= checkIn) return true
+                            if (checkIn && rangeCrossesOccupied(checkIn, key)) return true
+                            return false
+                          }}
+                          onChange={handleCheckOutChange}
+                        />
+                        <PeriodToggle
+                          value={checkOutPeriod}
+                          ariaLabel="Check-out AM or PM"
+                          onChange={(period) => setPeriod('checkOutPeriod', period)}
+                        />
+                        {errors.checkOut?.message && (
+                          <p className="text-sm text-destructive">{errors.checkOut.message}</p>
+                        )}
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="checkOut">Check-out</Label>
-                      <Input id="checkOut" type="date" min={checkIn || today} error={errors.checkOut?.message} {...register('checkOut')} />
-                    </div>
+                    <p className="mt-2 text-xs text-muted-foreground">
+                      Shaded dates are already reserved. Pick an open range that fits the whole stay.
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="adults">Adults</Label>
                       <Input id="adults" type="number" min={1} error={errors.adults?.message} {...register('adults')} />

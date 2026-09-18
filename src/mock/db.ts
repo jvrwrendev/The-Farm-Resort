@@ -1,11 +1,12 @@
-import { createSeedAccommodation, createSeedBookings, createSeedSettings } from './seed'
+import { createSeedAccommodation, createSeedAdminAccount, createSeedBookings, createSeedSettings } from './seed'
 import { MOCK_DB_KEY } from '@/lib/constants'
-import type { Accommodation, AdminBooking, AppSettings } from '@/types'
+import type { Accommodation, AdminBooking, AdminCredentials, AppSettings } from '@/types'
 
 export interface MockDatabase {
   accommodation: Accommodation
   bookings: AdminBooking[]
   settings: AppSettings
+  adminAccount: AdminCredentials
 }
 
 function freshDatabase(): MockDatabase {
@@ -13,6 +14,7 @@ function freshDatabase(): MockDatabase {
     accommodation: createSeedAccommodation(),
     bookings: createSeedBookings(),
     settings: createSeedSettings(),
+    adminAccount: createSeedAdminAccount(),
   }
 }
 
@@ -25,7 +27,10 @@ function loadDatabase(): MockDatabase {
     if (!parsed.accommodation || !Array.isArray(parsed.bookings) || !parsed.settings) {
       return freshDatabase()
     }
-    return parsed as MockDatabase
+    return {
+      ...parsed,
+      adminAccount: parsed.adminAccount ?? createSeedAdminAccount(),
+    } as MockDatabase
   } catch {
     return freshDatabase()
   }

@@ -27,9 +27,11 @@ export function Navbar() {
     <header className="fixed top-0 left-0 right-0 z-50">
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-background/70 px-4 py-3 shadow-lg backdrop-blur-xl">
-          <Link to="/" className="flex items-center gap-2">
-            <img src={BRAND_LOGO_URL} alt={BRAND_LOGO_ALT} className="h-8 w-8 rounded-md object-cover" />
-            <span className="font-display text-lg font-semibold tracking-tight">{BRAND_NAME}</span>
+          <Link to="/" className="flex min-w-0 items-center gap-2">
+            <img src={BRAND_LOGO_URL} alt={BRAND_LOGO_ALT} className="h-8 w-8 shrink-0 rounded-md object-cover" />
+            <span className="hidden font-display text-lg font-semibold tracking-tight sm:inline">
+              {BRAND_NAME}
+            </span>
           </Link>
 
           {isLanding && (
@@ -46,24 +48,24 @@ export function Navbar() {
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
             {user ? (
               <Button variant="outline" size="sm" asChild>
                 <Link to="/admin/dashboard">
                   <User className="h-4 w-4" />
-                  {isAdmin ? 'Admin' : 'Dashboard'}
+                  <span className="hidden sm:inline">{isAdmin ? 'Admin' : 'Dashboard'}</span>
                 </Link>
               </Button>
             ) : (
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/admin/login">
+              <Button variant="outline" size="sm" asChild className="px-2.5">
+                <Link to="/admin/login" aria-label="Admin sign in">
                   <LogIn className="h-4 w-4" />
-                  Admin Sign In
+                  <span className="hidden sm:inline">Admin Sign In</span>
                 </Link>
               </Button>
             )}
-            <Button variant="luxury" size="sm" asChild>
+            <Button variant="luxury" size="sm" asChild className="px-3 sm:px-4">
               <Link to="/book">Book Now</Link>
             </Button>
             {isLanding && (

@@ -258,7 +258,7 @@ export function AmenitiesSection() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.05, duration: 0.5 }}
-                className="flex items-start gap-4 rounded-2xl border bg-card p-6 shadow-sm transition-shadow hover:shadow-md"
+                className="flex items-start gap-4 rounded-2xl border bg-card p-6"
               >
                 <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                   <Icon className="h-6 w-6" />
@@ -302,7 +302,7 @@ export function PoliciesSection() {
               initial={{ opacity: 0, x: i % 2 === 0 ? -20 : 20 }}
               whileInView={{ opacity: 1, x: 0 }}
               viewport={{ once: true }}
-              className="rounded-xl border bg-card p-5 shadow-sm"
+              className="rounded-xl border bg-card p-5"
             >
               <h3 className="font-semibold">{policy.title}</h3>
               <p className="mt-1 text-sm text-muted-foreground">{policy.description}</p>

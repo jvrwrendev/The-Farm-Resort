@@ -91,8 +91,8 @@ export default function BookingConfirmationPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-                  <DetailRow icon={CalendarDays} label="Check-in" value={format(parseISO(booking.checkIn), 'EEEE, MMM d, yyyy')} />
-                  <DetailRow icon={CalendarDays} label="Check-out" value={format(parseISO(booking.checkOut), 'EEEE, MMM d, yyyy')} />
+                  <DetailRow icon={CalendarDays} label="Check-in" value={`${format(parseISO(booking.checkIn), 'EEEE, MMM d, yyyy')}${booking.checkInPeriod ? ` · ${booking.checkInPeriod}` : ''}`} />
+                  <DetailRow icon={CalendarDays} label="Check-out" value={`${format(parseISO(booking.checkOut), 'EEEE, MMM d, yyyy')}${booking.checkOutPeriod ? ` · ${booking.checkOutPeriod}` : ''}`} />
                   <DetailRow icon={Clock} label="Nights" value={`${booking.numberOfNights} night(s)`} />
                   <DetailRow icon={Users} label="Guests" value={`${booking.adults} adults, ${booking.children} children`} />
                   <DetailRow icon={Mail} label="Email" value={booking.email} />

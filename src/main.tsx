@@ -19,6 +19,7 @@ import AdminAccommodationPage from '@/features/admin/AdminAccommodationPage'
 import AdminCustomersPage from '@/features/admin/AdminCustomersPage'
 import AdminReportsPage from '@/features/admin/AdminReportsPage'
 import AdminSettingsPage from '@/features/admin/AdminSettingsPage'
+import AdminAccountPage from '@/features/admin/AdminAccountPage'
 import { AdminLayout } from '@/features/admin/AdminLayout'
 import { Button } from '@/components/ui/button'
 import './styles/globals.css'
@@ -128,6 +129,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <AdminRoute title="Settings">
                     <AdminSettingsPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/account"
+                element={
+                  <AdminRoute title="Account">
+                    <AdminAccountPage />
                   </AdminRoute>
                 }
               />

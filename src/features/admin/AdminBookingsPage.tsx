@@ -110,8 +110,8 @@ export default function AdminBookingsPage() {
                 <TableHead>Guest</TableHead>
                 <TableHead>Check-in</TableHead>
                 <TableHead>Check-out</TableHead>
-                <TableHead>Guests</TableHead>
-                <TableHead>Nights</TableHead>
+                <TableHead className="hidden sm:table-cell">Guests</TableHead>
+                <TableHead className="hidden sm:table-cell">Nights</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[1%] text-right">Actions</TableHead>
@@ -140,8 +140,8 @@ export default function AdminBookingsPage() {
                     </TableCell>
                     <TableCell>{format(parseISO(booking.checkIn), 'MMM d, yyyy')}</TableCell>
                     <TableCell>{format(parseISO(booking.checkOut), 'MMM d, yyyy')}</TableCell>
-                    <TableCell>{booking.adults + booking.children}</TableCell>
-                    <TableCell>{booking.numberOfNights}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{booking.adults + booking.children}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{booking.numberOfNights}</TableCell>
                     <TableCell>{formatCurrency(booking.totalAmount)}</TableCell>
                     <TableCell>
                       <StatusBadge status={booking.status} />

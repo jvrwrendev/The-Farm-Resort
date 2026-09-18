@@ -28,7 +28,7 @@ export function StatCard({
   hint?: string
 }) {
   return (
-    <Card className="shadow-sm">
+    <Card>
       <CardContent className="flex items-start justify-between p-5">
         <div>
           <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
