@@ -1,0 +1,149 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Playfair Display', Georgia, serif;
+
+  /* Primary: deep forest green */
+  --color-primary: oklch(0.32 0.05 150);
+  --color-primary-foreground: oklch(0.985 0.015 95);
+
+  /* Secondary: warm cream */
+  --color-secondary: oklch(0.97 0.02 90);
+  --color-secondary-foreground: oklch(0.22 0.03 150);
+
+  /* Background: cream off-white */
+  --color-background: oklch(0.985 0.015 95);
+  --color-foreground: oklch(0.22 0.03 150);
+
+  /* Cards */
+  --color-card: oklch(1 0 0);
+  --color-card-foreground: oklch(0.22 0.03 150);
+
+  /* Popovers */
+  --color-popover: oklch(1 0 0);
+  --color-popover-foreground: oklch(0.22 0.03 150);
+
+  /* Muted */
+  --color-muted: oklch(0.96 0.015 90);
+  --color-muted-foreground: oklch(0.45 0.02 150);
+
+  /* Accent: lighter forest */
+  --color-accent: oklch(0.94 0.03 150);
+  --color-accent-foreground: oklch(0.22 0.03 150);
+
+  /* Destructive: muted red (kept for safety) */
+  --color-destructive: oklch(0.5 0.18 25);
+  --color-destructive-foreground: oklch(0.985 0.015 95);
+
+  /* Borders / inputs / ring: subtle green-tinted */
+  --color-border: oklch(0.9 0.02 150);
+  --color-input: oklch(0.9 0.02 150);
+  --color-ring: oklch(0.32 0.05 150);
+
+  --radius: 0.75rem;
+}
+
+.dark {
+  --color-primary: oklch(0.6 0.08 150);
+  --color-primary-foreground: oklch(0.13 0.02 150);
+
+  --color-secondary: oklch(0.22 0.03 150);
+  --color-secondary-foreground: oklch(0.96 0.015 90);
+
+  --color-background: oklch(0.13 0.02 150);
+  --color-foreground: oklch(0.96 0.015 90);
+
+  --color-card: oklch(0.17 0.03 150);
+  --color-card-foreground: oklch(0.96 0.015 90);
+
+  --color-popover: oklch(0.17 0.03 150);
+  --color-popover-foreground: oklch(0.96 0.015 90);
+
+  --color-muted: oklch(0.22 0.03 150);
+  --color-muted-foreground: oklch(0.65 0.02 150);
+
+  --color-accent: oklch(0.26 0.04 150);
+  --color-accent-foreground: oklch(0.96 0.015 90);
+
+  --color-destructive: oklch(0.55 0.2 25);
+  --color-destructive-foreground: oklch(0.96 0.015 90);
+
+  --color-border: oklch(0.28 0.03 150);
+  --color-input: oklch(0.28 0.03 150);
+  --color-ring: oklch(0.6 0.08 150);
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+/* Cream glass for floating chips on dark photo backgrounds */
+.glass {
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+}
+
+.glass-dark {
+  background: rgba(15, 32, 24, 0.55);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-muted-foreground);
+  border-radius: 4px;
+  opacity: 0.5;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.8;
+}
+
+/* Admin sidebar: fixed deep-forest surface, consistent across light/dark */
+.admin-sidebar {
+  background-color: oklch(0.21 0.04 150);
+  background-image:
+    radial-gradient(140% 70% at 0% 0%, oklch(0.32 0.055 150) 0%, transparent 55%),
+    linear-gradient(180deg, oklch(0.23 0.045 150) 0%, oklch(0.17 0.035 150) 100%);
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb,
+.admin-sidebar ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.admin-sidebar::-webkit-scrollbar-thumb:hover,
+.admin-sidebar ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}

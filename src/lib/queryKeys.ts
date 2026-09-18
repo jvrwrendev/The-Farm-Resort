@@ -1,0 +1,14 @@
+export const queryKeys = {
+  accommodation: ['accommodation'] as const,
+  settings: ['app-settings'] as const,
+  adminBookings: (filters?: unknown) => ['admin-bookings', filters ?? {}] as const,
+  adminBooking: (id: string) => ['admin-booking', id] as const,
+  bookingByReference: (reference: string) => ['booking', reference] as const,
+  availability: (checkIn: string, checkOut: string) => ['availability', checkIn, checkOut] as const,
+  customers: ['customers'] as const,
+  adminStats: ['admin-stats'] as const,
+  reports: (from: string, to: string) => ['reports', from, to] as const,
+  gallery: ['gallery'] as const,
+  policies: ['policies'] as const,
+  calendarEvents: (from: string, to: string) => ['calendar-events', from, to] as const,
+}
