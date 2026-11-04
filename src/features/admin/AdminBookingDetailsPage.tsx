@@ -9,6 +9,7 @@ import {
   Mail,
   MessageSquare,
   Phone,
+  Tag,
   User,
   Users,
 } from 'lucide-react'
@@ -19,6 +20,7 @@ import { BookingActions } from '@/features/admin/BookingActions'
 import { StatusBadge } from '@/features/admin/components'
 import { getBookingById } from '@/services/admin.service'
 import { queryKeys } from '@/lib/queryKeys'
+import { BOOKING_TYPE_LABELS } from '@/lib/constants'
 import { formatCurrency } from '@/lib/utils'
 import type { ComponentType } from 'react'
 
@@ -134,6 +136,11 @@ export default function AdminBookingDetailsPage() {
               <InfoRow icon={CalendarDays} label="Check-out" value={`${format(parseISO(booking.checkOut), 'EEEE, MMM d, yyyy')}${booking.checkOutPeriod ? ` · ${booking.checkOutPeriod}` : ''}`} />
               <InfoRow icon={Clock} label="Number of nights" value={`${booking.numberOfNights} night(s)`} />
               <InfoRow icon={Users} label="Accommodation" value="Exclusive Resort Accommodation" />
+              <InfoRow
+                icon={Tag}
+                label="Booking via"
+                value={BOOKING_TYPE_LABELS[booking.bookingType]}
+              />
             </CardContent>
           </Card>
 

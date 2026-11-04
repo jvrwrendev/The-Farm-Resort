@@ -14,6 +14,7 @@ import AdminLoginPage from '@/features/admin/AdminLoginPage'
 import AdminDashboardPage from '@/features/admin/AdminDashboardPage'
 import AdminBookingsPage from '@/features/admin/AdminBookingsPage'
 import AdminBookingDetailsPage from '@/features/admin/AdminBookingDetailsPage'
+import AdminCreateBookingPage from '@/features/admin/AdminCreateBookingPage'
 import AdminCalendarPage from '@/features/admin/AdminCalendarPage'
 import AdminAccommodationPage from '@/features/admin/AdminAccommodationPage'
 import AdminCustomersPage from '@/features/admin/AdminCustomersPage'
@@ -89,6 +90,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <AdminRoute title="Booking Details">
                     <AdminBookingDetailsPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/bookings/new"
+                element={
+                  <AdminRoute title="New booking">
+                    <AdminCreateBookingPage />
                   </AdminRoute>
                 }
               />

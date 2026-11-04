@@ -8,13 +8,60 @@ import img7 from '@/assets/images/585310656_817306511044485_2339196781098693526_
 import heroImg from '@/assets/images/hero.jpg'
 import aboutImg from '@/assets/images/1.jpg'
 
-import type { GalleryItem, HeroImage } from '@/types'
+import type { GalleryItem, HeroImage, Policy } from '@/types'
 
 const NOW = '2025-01-01T00:00:00.000Z'
 
 export const ABOUT_IMAGE_URL = aboutImg
 
 export const HERO_BACKGROUND_URL = heroImg
+
+export const MOCK_POLICIES: Policy[] = [
+  {
+    id: 'policy-exclusive-use',
+    title: 'Exclusive Use',
+    description:
+      'The entire resort is reserved for one group at a time. Your booking guarantees private use of all facilities.',
+    icon: 'home',
+    sort_order: 1,
+    is_active: true,
+    created_at: NOW,
+    updated_at: NOW,
+  },
+  {
+    id: 'policy-check-in-out',
+    title: 'Check-in & Check-out',
+    description:
+      'Check-in is from 2:00 PM and check-out is by 12:00 PM. Early check-in and late check-out may be arranged in advance.',
+    icon: 'clock',
+    sort_order: 2,
+    is_active: true,
+    created_at: NOW,
+    updated_at: NOW,
+  },
+  {
+    id: 'policy-cancellation',
+    title: 'Cancellation',
+    description:
+      'Free cancellation up to 7 days before check-in. Cancellations made within 7 days are subject to a one-night charge.',
+    icon: 'calendar',
+    sort_order: 3,
+    is_active: true,
+    created_at: NOW,
+    updated_at: NOW,
+  },
+  {
+    id: 'policy-house-rules',
+    title: 'House Rules',
+    description:
+      'Please keep noise reasonable after the videoke curfew, dispose of trash properly, and respect the gardens and wildlife.',
+    icon: 'shield',
+    sort_order: 4,
+    is_active: true,
+    created_at: NOW,
+    updated_at: NOW,
+  },
+]
 
 export const MOCK_GALLERY: GalleryItem[] = [
   {

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, Mail, Save } from 'lucide-react'
+import { useMutation } from '@tanstack/react-query'
+import { KeyRound, Loader2, Mail, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -8,9 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PageHeading } from '@/features/admin/components'
 import { useAuth } from '@/features/auth/AuthProvider'
-import { updateAdminAccount } from '@/services/auth.service'
-import { queryKeys } from '@/lib/queryKeys'
-import { MOCK_ADMIN_EMAIL, MOCK_ADMIN_PASSWORD } from '@/lib/constants'
+import { supabase, isSupabaseConfigured } from '@/lib/supabase'
+import { mapAuthError } from '@/lib/errors'
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_PASSWORD_LENGTH = 8
@@ -23,13 +22,18 @@ function FieldError({ message }: { message: string }) {
   )
 }
 
+async function verifyCurrentPassword(email: string, password: string) {
+  const { error } = await supabase.auth.signInWithPassword({ email, password })
+  return error
+}
+
 export default function AdminAccountPage() {
-  const queryClient = useQueryClient()
-  const { user, refreshSession } = useAuth()
-  const currentEmail = user?.email ?? MOCK_ADMIN_EMAIL
+  const { user, refreshProfile } = useAuth()
+  const currentEmail = user?.email ?? ''
 
   const [emailValues, setEmailValues] = useState({ email: '', confirm: '', currentPassword: '' })
   const [emailError, setEmailError] = useState('')
+
   const [passwordValues, setPasswordValues] = useState({
     currentPassword: '',
     newPassword: '',
@@ -38,14 +42,18 @@ export default function AdminAccountPage() {
   const [passwordError, setPasswordError] = useState('')
 
   const emailMutation = useMutation({
-    mutationFn: () =>
-      updateAdminAccount({ currentPassword: emailValues.currentPassword, email: emailValues.email }),
-    onSuccess: (updated) => {
-      refreshSession(updated)
-      queryClient.invalidateQueries({ queryKey: queryKeys.adminAccount })
+    mutationFn: async () => {
+      if (!currentEmail) throw new Error('No active session.')
+      const verify = await verifyCurrentPassword(currentEmail, emailValues.currentPassword)
+      if (verify) throw new Error('Current password is incorrect.')
+      const { data, error } = await supabase.auth.updateUser({ email: emailValues.email })
+      if (error) throw new Error(mapAuthError(error))
+      return data
+    },
+    onSuccess: () => {
       setEmailValues({ email: '', confirm: '', currentPassword: '' })
       setEmailError('')
-      toast.success('Email updated.')
+      toast.success('Confirmation email sent to the new address.')
     },
     onError: (error: unknown) => {
       setEmailError(error instanceof Error ? error.message : 'Unable to update email.')
@@ -53,12 +61,18 @@ export default function AdminAccountPage() {
   })
 
   const passwordMutation = useMutation({
-    mutationFn: () =>
-      updateAdminAccount({ currentPassword: passwordValues.currentPassword, password: passwordValues.newPassword }),
+    mutationFn: async () => {
+      if (!currentEmail) throw new Error('No active session.')
+      const verify = await verifyCurrentPassword(currentEmail, passwordValues.currentPassword)
+      if (verify) throw new Error('Current password is incorrect.')
+      const { error } = await supabase.auth.updateUser({ password: passwordValues.newPassword })
+      if (error) throw new Error(mapAuthError(error))
+    },
     onSuccess: () => {
       setPasswordValues({ currentPassword: '', newPassword: '', confirm: '' })
       setPasswordError('')
       toast.success('Password updated.')
+      refreshProfile()
     },
     onError: (error: unknown) => {
       setPasswordError(error instanceof Error ? error.message : 'Unable to update password.')
@@ -85,6 +99,10 @@ export default function AdminAccountPage() {
       setEmailError('Enter your current password to confirm the change.')
       return
     }
+    if (!isSupabaseConfigured) {
+      setEmailError('Supabase is not configured. Update .env to enable account changes.')
+      return
+    }
     emailMutation.mutate()
   }
 
@@ -108,6 +126,10 @@ export default function AdminAccountPage() {
       setPasswordError('Passwords do not match.')
       return
     }
+    if (!isSupabaseConfigured) {
+      setPasswordError('Supabase is not configured. Update .env to enable account changes.')
+      return
+    }
     passwordMutation.mutate()
   }
 
@@ -115,8 +137,14 @@ export default function AdminAccountPage() {
     <div className="space-y-6">
       <PageHeading
         title="Account"
-        description="Update the admin sign-in email and password."
+        description="Update the admin sign-in email and password through Supabase Auth."
       />
+
+      {!isSupabaseConfigured && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+          Supabase credentials are not set. Configure <code>.env</code> before changing credentials.
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
@@ -162,8 +190,13 @@ export default function AdminAccountPage() {
                 />
               </div>
               {emailError && <FieldError message={emailError} />}
-              <Button type="submit" loading={emailMutation.isPending}>
-                <Save className="h-4 w-4" /> Update email
+              <Button type="submit" disabled={emailMutation.isPending}>
+                {emailMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Update email
               </Button>
             </form>
           </CardContent>
@@ -188,7 +221,9 @@ export default function AdminAccountPage() {
                   type="password"
                   autoComplete="current-password"
                   value={passwordValues.currentPassword}
-                  onChange={(e) => setPasswordValues((prev) => ({ ...prev, currentPassword: e.target.value }))}
+                  onChange={(e) =>
+                    setPasswordValues((prev) => ({ ...prev, currentPassword: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -198,7 +233,9 @@ export default function AdminAccountPage() {
                   type="password"
                   autoComplete="new-password"
                   value={passwordValues.newPassword}
-                  onChange={(e) => setPasswordValues((prev) => ({ ...prev, newPassword: e.target.value }))}
+                  onChange={(e) =>
+                    setPasswordValues((prev) => ({ ...prev, newPassword: e.target.value }))
+                  }
                 />
               </div>
               <div className="space-y-2">
@@ -208,24 +245,24 @@ export default function AdminAccountPage() {
                   type="password"
                   autoComplete="new-password"
                   value={passwordValues.confirm}
-                  onChange={(e) => setPasswordValues((prev) => ({ ...prev, confirm: e.target.value }))}
+                  onChange={(e) =>
+                    setPasswordValues((prev) => ({ ...prev, confirm: e.target.value }))
+                  }
                 />
               </div>
               {passwordError && <FieldError message={passwordError} />}
-              <Button type="submit" loading={passwordMutation.isPending}>
-                <Save className="h-4 w-4" /> Update password
+              <Button type="submit" disabled={passwordMutation.isPending}>
+                {passwordMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
+                Update password
               </Button>
             </form>
           </CardContent>
         </Card>
       </div>
-
-      <p className="text-sm text-muted-foreground">
-        Resetting demo data restores the default credentials:{' '}
-        <span className="font-medium text-foreground">
-          {MOCK_ADMIN_EMAIL} / {MOCK_ADMIN_PASSWORD}
-        </span>
-      </p>
     </div>
   )
 }

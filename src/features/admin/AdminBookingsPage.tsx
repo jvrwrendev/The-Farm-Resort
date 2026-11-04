@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
-import { Search } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,15 +26,15 @@ import { BookingActions } from '@/features/admin/BookingActions'
 import { PageHeading, StatusBadge } from '@/features/admin/components'
 import { getBookings } from '@/services/admin.service'
 import { queryKeys } from '@/lib/queryKeys'
-import { formatCurrency } from '@/lib/utils'
-import type { AdminBookingStatus } from '@/types'
+import { BOOKING_TYPE_OPTIONS, BOOKING_TYPE_SHORT_LABELS } from '@/lib/constants'
+import { cn, formatCurrency } from '@/lib/utils'
+import type { AdminBookingStatus, BookingTypeDb } from '@/types'
 
 const STATUS_OPTIONS: Array<{ value: AdminBookingStatus | 'all'; label: string }> = [
   { value: 'all', label: 'All statuses' },
   { value: 'pending', label: 'Pending' },
   { value: 'confirmed', label: 'Confirmed' },
-  { value: 'checked_in', label: 'Checked In' },
-  { value: 'checked_out', label: 'Checked Out' },
+  { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
@@ -41,10 +42,17 @@ export default function AdminBookingsPage() {
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<AdminBookingStatus | 'all'>('all')
+  const [bookingType, setBookingType] = useState<BookingTypeDb | 'all'>('all')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
 
-  const filters = { search, status, from: from || undefined, to: to || undefined }
+  const filters = {
+    search,
+    status,
+    bookingType,
+    from: from || undefined,
+    to: to || undefined,
+  }
 
   const { data: bookings = [], isLoading } = useQuery({
     queryKey: queryKeys.adminBookings(filters),
@@ -56,7 +64,42 @@ export default function AdminBookingsPage() {
       <PageHeading
         title="Bookings"
         description="Search, filter, and manage every reservation."
+        action={
+          <Button asChild>
+            <Link to="/admin/bookings/new">
+              <Plus className="h-4 w-4" />
+              New booking
+            </Link>
+          </Button>
+        }
       />
+
+      <Card>
+        <CardContent className="flex flex-wrap items-center gap-2 p-3">
+          <span className="px-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            Source
+          </span>
+          {BOOKING_TYPE_OPTIONS.map((opt) => {
+            const active = bookingType === opt.value
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setBookingType(opt.value)}
+                aria-pressed={active}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                  active
+                    ? 'border-primary bg-primary text-primary-foreground shadow-sm'
+                    : 'border-border bg-background text-muted-foreground hover:border-primary/40 hover:text-foreground',
+                )}
+              >
+                {opt.label}
+              </button>
+            )
+          })}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardContent className="grid grid-cols-1 gap-4 p-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -108,6 +151,7 @@ export default function AdminBookingsPage() {
               <TableRow>
                 <TableHead>Reference</TableHead>
                 <TableHead>Guest</TableHead>
+                <TableHead className="hidden md:table-cell">Source</TableHead>
                 <TableHead>Check-in</TableHead>
                 <TableHead>Check-out</TableHead>
                 <TableHead className="hidden sm:table-cell">Guests</TableHead>
@@ -120,13 +164,13 @@ export default function AdminBookingsPage() {
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
                     Loading bookings…
                   </TableCell>
                 </TableRow>
               ) : bookings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
                     No bookings match your filters.
                   </TableCell>
                 </TableRow>
@@ -137,6 +181,11 @@ export default function AdminBookingsPage() {
                     <TableCell>
                       <p className="font-medium">{booking.customerName}</p>
                       <p className="text-xs text-muted-foreground">{booking.email}</p>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell">
+                      <span className="inline-flex items-center rounded-full border border-border bg-muted/40 px-2 py-0.5 text-xs font-medium text-foreground">
+                        {BOOKING_TYPE_SHORT_LABELS[booking.bookingType]}
+                      </span>
                     </TableCell>
                     <TableCell>{format(parseISO(booking.checkIn), 'MMM d, yyyy')}</TableCell>
                     <TableCell>{format(parseISO(booking.checkOut), 'MMM d, yyyy')}</TableCell>

@@ -1,11 +1,10 @@
 import type { ComponentType } from 'react'
 import {
   BadgeCheck,
+  CheckCircle2,
   Clock,
   Eye,
   Loader2,
-  LogIn,
-  LogOut,
   MoreHorizontal,
   XCircle,
 } from 'lucide-react'
@@ -24,32 +23,28 @@ import type { AdminBooking, AdminBookingStatus } from '@/types'
 const LABELS: Record<AdminBookingStatus, string> = {
   pending: 'Mark as pending',
   confirmed: 'Confirm booking',
-  checked_in: 'Check in',
-  checked_out: 'Check out',
+  completed: 'Mark as completed',
   cancelled: 'Cancel booking',
 }
 
 const SHORT_LABELS: Record<AdminBookingStatus, string> = {
   pending: 'Pending',
   confirmed: 'Confirm',
-  checked_in: 'Check In',
-  checked_out: 'Check Out',
+  completed: 'Complete',
   cancelled: 'Cancel',
 }
 
 const ICONS: Record<AdminBookingStatus, ComponentType<{ className?: string }>> = {
   pending: Clock,
   confirmed: BadgeCheck,
-  checked_in: LogIn,
-  checked_out: LogOut,
+  completed: CheckCircle2,
   cancelled: XCircle,
 }
 
 const VARIANTS: Record<AdminBookingStatus, 'default' | 'outline' | 'destructive'> = {
   pending: 'outline',
   confirmed: 'default',
-  checked_in: 'default',
-  checked_out: 'outline',
+  completed: 'outline',
   cancelled: 'destructive',
 }
 

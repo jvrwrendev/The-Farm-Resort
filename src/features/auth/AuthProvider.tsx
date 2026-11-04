@@ -1,93 +1,166 @@
-import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from 'react'
-import { ADMIN_SESSION_KEY } from '@/lib/constants'
-import { buildAdminProfile, signInAdmin, type MockAdminUser } from '@/services/auth.service'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  type ReactNode,
+} from 'react'
+import type { Session, User } from '@supabase/supabase-js'
+import { supabase } from '@/lib/supabase'
+import { mapAuthError, mapPostgrestError } from '@/lib/errors'
 import type { Profile } from '@/types'
 
 interface AuthContextType {
-  user: MockAdminUser | null
+  session: Session | null
+  user: User | null
   profile: Profile | null
   loading: boolean
   isAdmin: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signOut: () => void
+  signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
-  refreshSession: (user: MockAdminUser) => void
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-function readSession(): MockAdminUser | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const raw = window.localStorage.getItem(ADMIN_SESSION_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as MockAdminUser
-    if (!parsed?.id || !parsed?.email) return null
-    return parsed
-  } catch {
-    return null
+function buildProfileFromUser(user: User): Profile {
+  const meta = (user.user_metadata ?? {}) as Record<string, unknown>
+  const fullName =
+    typeof meta.full_name === 'string'
+      ? meta.full_name
+      : (user.email ?? '').split('@')[0]
+  return {
+    id: user.id,
+    email: user.email ?? '',
+    full_name: fullName,
+    role: 'customer',
+    is_active: true,
+    created_at: user.created_at ?? new Date().toISOString(),
+    updated_at: user.created_at ?? new Date().toISOString(),
   }
 }
 
+async function fetchProfile(userId: string): Promise<Profile | null> {
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', userId)
+    .maybeSingle()
+
+  if (error) {
+    console.warn('[Supabase] profile fetch error:', mapPostgrestError(error))
+    return null
+  }
+  return data as Profile | null
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<MockAdminUser | null>(null)
+  const [session, setSession] = useState<Session | null>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    setUser(readSession())
-    setLoading(false)
-  }, [])
+  const refreshProfile = useCallback(async () => {
+    if (!user) {
+      setProfile(null)
+      return
+    }
+    const next = await fetchProfile(user.id)
+    setProfile(next ?? buildProfileFromUser(user))
+  }, [user])
 
-  const profile = useMemo(() => (user ? buildAdminProfile(user) : null), [user])
+  useEffect(() => {
+    let cancelled = false
+
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        if (cancelled) return
+        const nextSession = data.session ?? null
+        setSession(nextSession)
+        const nextUser = nextSession?.user ?? null
+        setUser(nextUser)
+        if (nextUser) {
+          const prof = await fetchProfile(nextUser.id)
+          if (!cancelled) setProfile(prof ?? buildProfileFromUser(nextUser))
+        }
+        if (!cancelled) setLoading(false)
+      })
+      .catch(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+      setSession(nextSession)
+      const nextUser = nextSession?.user ?? null
+      setUser(nextUser)
+      if (nextUser) {
+        const prof = await fetchProfile(nextUser.id)
+        setProfile(prof ?? buildProfileFromUser(nextUser))
+      } else {
+        setProfile(null)
+      }
+      setLoading(false)
+    })
+
+    return () => {
+      cancelled = true
+      sub.subscription.unsubscribe()
+    }
+  }, [])
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const admin = await signInAdmin(email, password)
-    setUser(admin)
-    try {
-      window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(admin))
-    } catch {
-      // Session stays in memory if storage is unavailable.
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) {
+      throw new Error(mapAuthError(error))
+    }
+    if (!data.user) {
+      throw new Error('Unable to sign in. Please try again.')
+    }
+    const prof = await fetchProfile(data.user.id)
+    setSession(data.session ?? null)
+    setUser(data.user)
+    setProfile(prof ?? buildProfileFromUser(data.user))
+
+    if (prof && prof.role !== 'admin') {
+      await supabase.auth.signOut()
+      setSession(null)
+      setUser(null)
+      setProfile(null)
+      throw new Error('This account does not have administrator access.')
+    }
+    if (!prof) {
+      // Profile not provisioned yet — accept login but warn on next render.
+      setProfile(buildProfileFromUser(data.user))
     }
   }, [])
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut()
+    setSession(null)
     setUser(null)
-    try {
-      window.localStorage.removeItem(ADMIN_SESSION_KEY)
-    } catch {
-      // Ignore storage errors.
-    }
+    setProfile(null)
   }, [])
 
-  const refreshProfile = useCallback(async () => {
-    setUser(readSession())
-  }, [])
+  const isAdmin = profile?.role === 'admin'
 
-  const refreshSession = useCallback((next: MockAdminUser) => {
-    setUser(next)
-    try {
-      window.localStorage.setItem(ADMIN_SESSION_KEY, JSON.stringify(next))
-    } catch {
-      // Session stays in memory if storage is unavailable.
-    }
-  }, [])
-
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        profile,
-        loading,
-        isAdmin: !!user,
-        signIn,
-        signOut,
-        refreshProfile,
-        refreshSession,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo<AuthContextType>(
+    () => ({
+      session,
+      user,
+      profile,
+      loading,
+      isAdmin,
+      signIn,
+      signOut,
+      refreshProfile,
+    }),
+    [session, user, profile, loading, isAdmin, signIn, signOut, refreshProfile],
   )
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {

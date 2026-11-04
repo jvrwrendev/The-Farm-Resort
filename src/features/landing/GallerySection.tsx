@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ChevronLeft, ChevronRight, ImageIcon, Waves, BedDouble, UtensilsCrossed, Wifi, Car, Trees } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
-import { getGallery } from '@/services/resort.service'
+import { getGallery, getPolicies } from '@/services/resort.service'
 import { MOCK_GALLERY } from '@/features/landing/mockContent'
 import type { GalleryItem } from '@/types'
 
@@ -279,7 +279,7 @@ export function AmenitiesSection() {
 export function PoliciesSection() {
   const { data: policies = [] } = useQuery({
     queryKey: ['policies'],
-    queryFn: () => import('@/services/resort.service').then((m) => m.getPolicies()),
+    queryFn: getPolicies,
   })
 
   return (

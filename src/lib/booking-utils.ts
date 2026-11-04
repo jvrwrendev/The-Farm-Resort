@@ -1,11 +1,12 @@
 import { BLOCKING_STATUSES } from '@/lib/constants'
 import type { AdminBooking, AdminBookingStatus, BookingStatus } from '@/types'
 
+/** True if a booking in this status reserves its room nights. */
 export function isBlockingStatus(status: AdminBookingStatus): boolean {
   return (BLOCKING_STATUSES as readonly string[]).includes(status)
 }
 
-/** Half-open interval overlap: [checkIn, checkOut). Same-day turnover is allowed. */
+/** Half-open interval overlap: [checkIn, checkOut). Same-day turnover allowed. */
 export function rangesOverlap(
   aCheckIn: string,
   aCheckOut: string,
@@ -20,19 +21,7 @@ export function bookingCoversDate(booking: AdminBooking, date: string): boolean 
   return booking.checkIn <= date && date < booking.checkOut
 }
 
-/** Maps the management statuses onto the legacy landing-calendar statuses. */
+/** Identity helper (kept for API parity with previous versions). */
 export function toLegacyStatus(status: AdminBookingStatus): BookingStatus {
-  switch (status) {
-    case 'pending':
-      return 'pending'
-    case 'confirmed':
-    case 'checked_in':
-      return 'confirmed'
-    case 'checked_out':
-      return 'completed'
-    case 'cancelled':
-      return 'cancelled'
-    default:
-      return 'pending'
-  }
+  return status as unknown as BookingStatus
 }

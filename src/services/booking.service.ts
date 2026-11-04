@@ -1,95 +1,62 @@
-import { format, isBefore, parseISO, startOfDay } from 'date-fns'
-import { db, persistDatabase } from '@/mock/db'
-import { DEFAULT_PRICE_PER_NIGHT } from '@/lib/constants'
-import { isBlockingStatus, rangesOverlap } from '@/lib/booking-utils'
-import { nightsBetween, sleep, uid } from '@/lib/utils'
-import type { AdminBooking, CreateBookingInput } from '@/types'
-
-export function generateBookingReference(): string {
-  const dateStr = format(new Date(), 'yyyyMMdd')
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const random = Math.random().toString(36).slice(2, 7).toUpperCase()
-    const reference = `BK-${dateStr}-${random}`
-    if (!db.bookings.some((booking) => booking.bookingReference === reference)) {
-      return reference
-    }
-  }
-  return `BK-${dateStr}-${Date.now().toString(36).toUpperCase()}`
-}
+import { supabase } from '@/lib/supabase'
+import { mapSupabaseError, mapPostgrestError } from '@/lib/errors'
+import { mapBookingRowToAdmin } from '@/lib/mappers'
+import type { AdminBooking, BookingRow, CreateBookingInput } from '@/types'
 
 export async function isRangeAvailable(
   checkIn: string,
   checkOut: string,
-  excludeBookingId?: string,
+  roomId?: string,
 ): Promise<boolean> {
-  await sleep(120)
-  return !db.bookings.some(
-    (booking) =>
-      booking.id !== excludeBookingId &&
-      isBlockingStatus(booking.status) &&
-      rangesOverlap(checkIn, checkOut, booking.checkIn, booking.checkOut),
-  )
+  if (!checkIn || !checkOut || !roomId) return true
+  const { data, error } = await supabase.rpc('is_range_available', {
+    p_room_id: roomId,
+    p_check_in: checkIn,
+    p_check_out: checkOut,
+  })
+  if (error) {
+    throw new Error(mapPostgrestError(error))
+  }
+  return Boolean(data)
 }
 
-export async function createBooking(input: CreateBookingInput): Promise<AdminBooking> {
-  await sleep(350)
+export async function createBooking(
+  input: CreateBookingInput,
+  roomId: string,
+): Promise<AdminBooking> {
+  const guests = (input.adults ?? 0) + (input.children ?? 0)
+  const { data, error } = await supabase.rpc('create_booking', {
+    p_room_id: roomId,
+    p_customer_name: input.customerName,
+    p_customer_email: input.email,
+    p_customer_phone: input.contactNumber,
+    p_check_in: input.checkIn,
+    p_check_out: input.checkOut,
+    p_check_in_period: input.checkInPeriod ?? 'PM',
+    p_check_out_period: input.checkOutPeriod ?? 'PM',
+    p_guests: guests,
+    p_adults: input.adults,
+    p_children: input.children,
+    p_special_requests: input.specialRequests ?? '',
+  })
 
-  const checkIn = input.checkIn
-  const checkOut = input.checkOut
-
-  if (!checkIn || !checkOut) {
-    throw new Error('Please select both check-in and check-out dates.')
+  if (error) {
+    throw new Error(mapSupabaseError(error))
   }
-  if (isBefore(parseISO(checkIn), startOfDay(new Date()))) {
-    throw new Error('Check-in date cannot be in the past.')
-  }
-
-  const numberOfNights = nightsBetween(checkIn, checkOut)
-  if (numberOfNights <= 0) {
-    throw new Error('Check-out must be after check-in.')
-  }
-
-  if (db.accommodation.status === 'unavailable') {
-    throw new Error('The accommodation is currently unavailable for booking.')
-  }
-
-  const available = await isRangeAvailable(checkIn, checkOut)
-  if (!available) {
-    throw new Error('Those dates are already reserved. Please choose another date range.')
-  }
-
-  const pricePerNight = db.accommodation.pricePerNight || DEFAULT_PRICE_PER_NIGHT
-  const timestamp = new Date().toISOString()
-
-  const booking: AdminBooking = {
-    id: uid(),
-    bookingReference: generateBookingReference(),
-    customerName: input.customerName.trim(),
-    email: input.email.trim().toLowerCase(),
-    contactNumber: input.contactNumber.trim(),
-    accommodationId: db.accommodation.id,
-    checkIn,
-    checkOut,
-    checkInPeriod: input.checkInPeriod ?? 'PM',
-    checkOutPeriod: input.checkOutPeriod ?? 'PM',
-    adults: input.adults,
-    children: input.children,
-    specialRequests: (input.specialRequests ?? '').trim(),
-    numberOfNights,
-    pricePerNight,
-    totalAmount: numberOfNights * pricePerNight,
-    status: 'pending',
-    createdAt: timestamp,
-    updatedAt: timestamp,
-  }
-
-  db.bookings.unshift(booking)
-  persistDatabase()
-  return { ...booking }
+  const row = data as unknown as BookingRow
+  if (!row) throw new Error('Booking creation failed. Please try again.')
+  return mapBookingRowToAdmin(row)
 }
 
 export async function getBookingByReference(reference: string): Promise<AdminBooking | null> {
-  await sleep(150)
-  const booking = db.bookings.find((item) => item.bookingReference === reference)
-  return booking ? { ...booking } : null
+  if (!reference) return null
+  const { data, error } = await supabase.rpc('get_booking_by_reference', {
+    p_reference: reference,
+  })
+  if (error) {
+    throw new Error(mapSupabaseError(error))
+  }
+  const row = data as unknown as BookingRow | null
+  if (!row) return null
+  return mapBookingRowToAdmin(row)
 }

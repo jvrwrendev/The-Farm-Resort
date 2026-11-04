@@ -24,8 +24,7 @@ import type { AdminBooking, AdminBookingStatus } from '@/types'
 const STATUS_VARIANTS: Record<AdminBookingStatus, 'default' | 'secondary' | 'destructive' | 'outline' | 'success' | 'warning'> = {
   pending: 'warning',
   confirmed: 'success',
-  checked_in: 'default',
-  checked_out: 'outline',
+  completed: 'secondary',
   cancelled: 'destructive',
 }
 

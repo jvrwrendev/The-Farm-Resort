@@ -22,7 +22,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { DatePickerField } from '@/features/booking/DatePickerField'
-import { getAccommodation } from '@/services/accommodation.service'
+import { getAccommodation, getRoomId } from '@/services/accommodation.service'
 import { createBooking, isRangeAvailable } from '@/services/booking.service'
 import { getCalendarEvents } from '@/services/resort.service'
 import { queryKeys } from '@/lib/queryKeys'
@@ -82,6 +82,12 @@ export default function BookingPage() {
     staleTime: 30_000,
   })
 
+  const { data: roomId } = useQuery({
+    queryKey: ['room-id'],
+    queryFn: getRoomId,
+    staleTime: 5 * 60_000,
+  })
+
   const occupied = useMemo(() => new Set(events.map((event) => event.event_date)), [events])
 
   const {
@@ -122,17 +128,21 @@ export default function BookingPage() {
   const rangeValid = nights > 0 && !!checkIn && !!checkOut
 
   const { data: available, isFetching: checkingAvailability } = useQuery({
-    queryKey: queryKeys.availability(checkIn, checkOut),
-    queryFn: () => isRangeAvailable(checkIn, checkOut),
-    enabled: rangeValid,
+    queryKey: queryKeys.availability(roomId ?? null, checkIn, checkOut),
+    queryFn: () => isRangeAvailable(checkIn, checkOut, roomId ?? undefined),
+    enabled: rangeValid && !!roomId,
     staleTime: 15_000,
   })
 
   const mutation = useMutation({
-    mutationFn: createBooking,
+    mutationFn: async (input: Parameters<typeof createBooking>[0]) => {
+      if (!roomId) throw new Error('Accommodation not loaded. Please refresh and try again.')
+      return createBooking(input, roomId)
+    },
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: queryKeys.adminStats })
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['availability'] })
       toast.success('Reservation submitted!')
       navigate(`/book/confirmation/${booking.bookingReference}`)
     },

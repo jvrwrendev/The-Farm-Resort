@@ -3,6 +3,7 @@ import { HeroSection, AboutSection } from '@/features/landing/HeroSection'
 import { RoomsSection } from '@/features/landing/RoomsSection'
 import { GallerySection, AmenitiesSection, PoliciesSection } from '@/features/landing/GallerySection'
 import { AvailabilitySection } from '@/features/landing/AvailabilitySection'
+import { ChatbotWidget } from '@/features/landing/ChatbotWidget'
 
 export default function LandingPage() {
   return (
@@ -14,6 +15,7 @@ export default function LandingPage() {
       <GallerySection />
       <AvailabilitySection />
       <PoliciesSection />
+      <ChatbotWidget />
     </PublicLayout>
   )
 }

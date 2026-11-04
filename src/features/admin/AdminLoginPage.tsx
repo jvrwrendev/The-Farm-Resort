@@ -1,39 +1,44 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
-import { Eye, EyeOff, ShieldCheck } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { Eye, EyeOff, Loader2, ShieldCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { BRAND_LOGO_ALT, BRAND_LOGO_URL, BRAND_NAME } from '@/lib/brand'
-import { MOCK_ADMIN_EMAIL } from '@/lib/constants'
-import { queryKeys } from '@/lib/queryKeys'
-import { getAdminAccount } from '@/services/auth.service'
+
+interface LocationState {
+  from?: { pathname?: string }
+  denied?: boolean
+}
 
 export default function AdminLoginPage() {
-  const { user, signIn } = useAuth()
+  const { user, isAdmin, signIn } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [denied, setDenied] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
-  const accountQuery = useQuery({ queryKey: queryKeys.adminAccount, queryFn: getAdminAccount })
-  const accountEmail = accountQuery.data?.email ?? MOCK_ADMIN_EMAIL
+  useEffect(() => {
+    const state = (location.state ?? null) as LocationState | null
+    if (state?.denied) setDenied(true)
+  }, [location.state])
 
-  if (user) {
+  if (user && isAdmin) {
     return <Navigate to="/admin/dashboard" replace />
   }
 
-  const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname
+  const from = (location.state as LocationState | null)?.from?.pathname
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
     setError('')
+    setDenied(false)
     setSubmitting(true)
     try {
       await signIn(email, password)
@@ -59,7 +64,9 @@ export default function AdminLoginPage() {
               <ShieldCheck className="h-5 w-5 text-primary" />
               Admin Login
             </CardTitle>
-            <CardDescription>Sign in to manage bookings, rooms, services, and site content.</CardDescription>
+            <CardDescription>
+              Sign in with the Supabase-managed administrator credentials.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -74,11 +81,6 @@ export default function AdminLoginPage() {
                   onChange={(e) => setEmail(e.target.value)}
                   required
                 />
-                <p className="text-xs text-muted-foreground">
-                  Demo credentials: <span className="font-mono text-foreground">{accountEmail}</span>
-                  {' / '}
-                  <span className="font-mono text-foreground">admin123</span>
-                </p>
               </div>
 
               <div className="space-y-2">
@@ -104,6 +106,11 @@ export default function AdminLoginPage() {
                 </div>
               </div>
 
+              {denied && (
+                <p role="alert" className="text-sm text-destructive">
+                  Your account is signed in but does not have administrator access.
+                </p>
+              )}
               {error && (
                 <p role="alert" className="text-sm text-destructive">
                   {error}
@@ -111,7 +118,13 @@ export default function AdminLoginPage() {
               )}
 
               <Button type="submit" className="w-full" disabled={submitting}>
-                {submitting ? 'Signing in...' : 'Sign in'}
+                {submitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Signing in...
+                  </>
+                ) : (
+                  'Sign in'
+                )}
               </Button>
             </form>
           </CardContent>
@@ -121,6 +134,9 @@ export default function AdminLoginPage() {
           <Link to="/" className="hover:text-foreground">
             &larr; Back to website
           </Link>
+        </p>
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          Initial administrator accounts are created from the Supabase dashboard.
         </p>
       </div>
     </div>

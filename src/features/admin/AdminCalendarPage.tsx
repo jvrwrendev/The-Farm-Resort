@@ -31,26 +31,22 @@ import type { AdminBooking, AdminBookingStatus } from '@/types'
 const STATUS_ORDER: AdminBookingStatus[] = [
   'pending',
   'confirmed',
-  'checked_in',
-  'checked_out',
+  'completed',
   'cancelled',
 ]
 
 const STATUS_PRIORITY: Record<AdminBookingStatus, number> = {
-  checked_in: 0,
-  confirmed: 1,
-  pending: 2,
-  checked_out: 3,
-  cancelled: 4,
+  confirmed: 0,
+  pending: 1,
+  completed: 2,
+  cancelled: 3,
 }
 
 const STATUS_CHIP: Record<AdminBookingStatus, string> = {
   pending:
     'bg-amber-100 text-amber-900 border-amber-200 dark:bg-amber-900/30 dark:text-amber-200 dark:border-amber-800/50',
   confirmed: 'bg-primary/10 text-primary border-primary/20',
-  checked_in:
-    'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800/50',
-  checked_out: 'bg-muted text-muted-foreground border-border',
+  completed: 'bg-muted text-muted-foreground border-border',
   cancelled:
     'bg-destructive/10 text-destructive border-destructive/20 line-through decoration-destructive/40',
 }
@@ -58,16 +54,14 @@ const STATUS_CHIP: Record<AdminBookingStatus, string> = {
 const STATUS_DOT: Record<AdminBookingStatus, string> = {
   pending: 'bg-amber-500',
   confirmed: 'bg-primary',
-  checked_in: 'bg-blue-500',
-  checked_out: 'bg-muted-foreground/50',
+  completed: 'bg-muted-foreground/50',
   cancelled: 'bg-destructive',
 }
 
 const STATUS_LABELS: Record<AdminBookingStatus, string> = {
   pending: 'Pending',
   confirmed: 'Confirmed',
-  checked_in: 'Checked In',
-  checked_out: 'Checked Out',
+  completed: 'Completed',
   cancelled: 'Cancelled',
 }
 
@@ -85,8 +79,7 @@ export default function AdminCalendarPage() {
   const [visible, setVisible] = useState<Record<AdminBookingStatus, boolean>>({
     pending: true,
     confirmed: true,
-    checked_in: true,
-    checked_out: true,
+    completed: true,
     cancelled: true,
   })
 

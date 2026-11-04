@@ -1,0 +1,75 @@
+import type { PostgrestError, AuthError } from '@supabase/supabase-js'
+
+/**
+ * Friendly user-facing error strings.
+ * The Supabase error object exposes many internal fields we don't want to
+ * leak to end users (Postgres error codes, table names, SQL fragments, etc.).
+ */
+
+const FRIENDLY_RPC_MESSAGES: Record<string, string> = {
+  ROOM_NOT_FOUND: 'The selected accommodation could not be found.',
+  ROOM_UNAVAILABLE: 'This accommodation is currently unavailable for booking.',
+  DATES_REQUIRED: 'Please select both a check-in and a check-out date.',
+  INVALID_DATE_RANGE: 'Check-out must be after check-in.',
+  PAST_CHECK_IN: 'Check-in date cannot be in the past.',
+  ADULTS_REQUIRED: 'At least one adult is required.',
+  INVALID_CHILDREN: 'Children count is invalid.',
+  GUESTS_REQUIRED: 'Please specify the number of guests.',
+  DATES_UNAVAILABLE: 'Those dates are already reserved. Please choose a different range.',
+  BOOKING_REFERENCE_CONFLICT: 'We could not generate a unique booking reference. Please retry.',
+  BOOKING_NOT_FOUND: 'Booking not found.',
+  CANNOT_REOPEN_COMPLETED: 'Completed bookings cannot be reopened.',
+  NOT_AUTHORIZED: 'You are not authorized to perform that action.',
+  INVALID_CREDENTIALS: 'Invalid email or password.',
+}
+
+export function mapSupabaseError(error: unknown): string {
+  if (!error) return 'Something went wrong. Please try again.'
+  if (error instanceof Error) {
+    const raw = error.message ?? ''
+    const mapped = mapRaw(raw)
+    if (mapped) return mapped
+    // Generic friendly strings for common cases.
+    if (/network|fetch|failed to fetch/i.test(raw))
+      return 'Network error. Please check your connection and try again.'
+    if (raw.toLowerCase().includes('invalid login credentials'))
+      return 'Invalid email or password.'
+    return 'Something went wrong. Please try again.'
+  }
+  return 'Something went wrong. Please try again.'
+}
+
+function mapRaw(message: string): string | null {
+  for (const [code, friendly] of Object.entries(FRIENDLY_RPC_MESSAGES)) {
+    if (message.includes(code)) return friendly
+  }
+  return null
+}
+
+/** Used for PostgREST-shaped errors (table SELECT/INSERT exceptions). */
+export function mapPostgrestError(err: PostgrestError | null | undefined): string {
+  if (!err) return 'Something went wrong. Please try again.'
+  if (err.code === 'PGRST116' || err.code === 'PGRST301') {
+    return 'Service temporarily unavailable. Please retry.'
+  }
+  if (err.code === '23505') return 'This record already exists.'
+  if (err.code === '42501') return "You don't have permission to do that."
+  return mapSupabaseError({ message: err.message } as Error)
+}
+
+/** Used for Auth-shaped errors (sign-in, update). */
+export function mapAuthError(err: AuthError | null | undefined): string {
+  if (!err) return 'Something went wrong. Please try again.'
+  const msg = (err.message ?? '').toLowerCase()
+  if (msg.includes('invalid login') || msg.includes('invalid credentials'))
+    return 'Invalid email or password.'
+  if (msg.includes('email not confirmed'))
+    return 'Please confirm your email before signing in.'
+  if (msg.includes('user already registered'))
+    return 'An account already exists for that email.'
+  if (msg.includes('rate limit'))
+    return 'Too many attempts. Please wait a moment and try again.'
+  if (msg.includes('password'))
+    return 'Password does not meet the strength requirements.'
+  return 'Unable to complete authentication. Please try again.'
+}

@@ -355,12 +355,6 @@ function SelectedEventDetails({ event }: { event: CalendarEvent }) {
       message: 'The previous reservation was cancelled. This date may be available.',
       Icon: Check,
     },
-    rejected: {
-      label: 'Rejected',
-      className: 'bg-secondary text-secondary-foreground border-border',
-      message: 'The previous reservation was rejected. This date may be available.',
-      Icon: Check,
-    },
   }
 
   const cfg = statusConfig[event.status]

@@ -1,0 +1,18 @@
+﻿WorkingDir: F:\my_project\Resort
+--- types probe ---
+static Landing.tsx: False
+has BookingTypeDb in src\types\index.ts: True
+has booking_type in src\types\index.ts: True
+has MappingTypeDb import in src\lib\constants.ts: True
+admin.service count: 295
+admin.service has getAllRooms: True
+admin.service has adminCreateBooking: True
+main src dirs:
+assets
+components
+features
+lib
+services
+store
+styles
+types

@@ -1,13 +1,32 @@
-export const DEFAULT_ACCOMMODATION_ID = 'accommodation-exclusive'
-export const DEFAULT_ACCOMMODATION_NAME = 'Exclusive Resort Accommodation'
+﻿import type { BookingTypeDb } from '@/types'
+
 export const DEFAULT_PRICE_PER_NIGHT = 7000
 export const DEFAULT_MAX_GUESTS = 25
 
-export const MOCK_ADMIN_EMAIL = 'admin@thefarm.ph'
-export const MOCK_ADMIN_PASSWORD = 'admin123'
-export const MOCK_ADMIN_NAME = 'Resort Admin'
+/** Statuses that block a date from being booked by another guest. */
+export const BLOCKING_STATUSES = ['pending', 'confirmed'] as const
 
-export const ADMIN_SESSION_KEY = 'thefarm.admin.session'
-export const MOCK_DB_KEY = 'thefarm.mockdb.v1'
+/** Human-readable labels for each booking source. */
+export const BOOKING_TYPE_LABELS: Record<BookingTypeDb, string> = {
+  online_booking: 'Online booking',
+  walk_in: 'Walk-in',
+  contact_booking: 'Contact booking',
+  other_manual: 'Other (manual)',
+}
 
-export const BLOCKING_STATUSES = ['pending', 'confirmed', 'checked_in', 'checked_out'] as const
+/** Short labels usable inside table pills / dense UI. */
+export const BOOKING_TYPE_SHORT_LABELS: Record<BookingTypeDb, string> = {
+  online_booking: 'Online',
+  walk_in: 'Walk-in',
+  contact_booking: 'Contact',
+  other_manual: 'Manual',
+}
+
+/** Channel options for the booking-type filter. */
+export const BOOKING_TYPE_OPTIONS: Array<{ value: BookingTypeDb | 'all'; label: string }> = [
+  { value: 'all', label: 'All sources' },
+  { value: 'online_booking', label: 'Online booking' },
+  { value: 'walk_in', label: 'Walk-in' },
+  { value: 'contact_booking', label: 'Contact booking' },
+  { value: 'other_manual', label: 'Other (manual)' },
+]

@@ -1,16 +1,23 @@
 import { createClient } from '@supabase/supabase-js'
-import type { Database } from '@/types/database'
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    'Supabase credentials not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env'
+    '[Supabase] Credentials missing. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY in .env (see .env.example).',
   )
 }
 
-export const supabase = createClient<Database>(
+export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
+
+/**
+ * Supabase client. The Database generic is left loose to avoid friction with
+ * the table-level typing helpers in @supabase/postgrest-js; service-layer
+ * calls cast results to the application domain types defined in
+ * `src/types/index.ts` (e.g. `BookingRow`, `RoomRow`).
+ */
+export const supabase = createClient(
   supabaseUrl || 'https://placeholder.supabase.co',
   supabaseAnonKey || 'placeholder-key',
   {
@@ -19,5 +26,5 @@ export const supabase = createClient<Database>(
       persistSession: true,
       detectSessionInUrl: true,
     },
-  }
+  },
 )

@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -10,8 +11,13 @@ interface ProtectedRouteProps {
 export function ProtectedRoute({ children, requireAdmin = true }: ProtectedRouteProps) {
   const { user, isAdmin, loading } = useAuth()
   const location = useLocation()
+  const [bootstrapped, setBootstrapped] = useState(false)
 
-  if (loading) {
+  useEffect(() => {
+    if (!loading) setBootstrapped(true)
+  }, [loading])
+
+  if (!bootstrapped || loading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="space-y-4 w-64">
@@ -28,7 +34,7 @@ export function ProtectedRoute({ children, requireAdmin = true }: ProtectedRoute
   }
 
   if (requireAdmin && !isAdmin) {
-    return <Navigate to="/admin/login" replace />
+    return <Navigate to="/admin/login" state={{ from: location, denied: true }} replace />
   }
 
   return <>{children}</>

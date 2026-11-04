@@ -9,6 +9,7 @@ import {
   CircleDollarSign,
   Clock,
   LogIn,
+  LogOut,
   Users,
   XCircle,
 } from 'lucide-react'
@@ -46,15 +47,24 @@ export default function AdminDashboardPage() {
         <StatCard title="Total Bookings" value={stats?.totalBookings ?? '—'} icon={CalendarCheck2} />
         <StatCard title="Pending" value={stats?.pending ?? '—'} icon={Clock} />
         <StatCard title="Confirmed" value={stats?.confirmed ?? '—'} icon={BadgeCheck} />
+        <StatCard title="Completed" value={stats?.completed ?? '—'} icon={BadgeCheck} />
         <StatCard title="Cancelled" value={stats?.cancelled ?? '—'} icon={XCircle} />
-        <StatCard title="Upcoming Reservations" value={stats?.upcomingReservations ?? '—'} icon={CalendarCheck2} />
-        <StatCard title="Current Guests" value={stats?.currentGuests ?? '—'} icon={Users} />
-        <StatCard title="Total Revenue" value={stats ? formatCurrency(stats.totalRevenue) : '—'} icon={CircleDollarSign} />
         <StatCard
-          title="Accommodation"
-          value={stats?.accommodationAvailable ? 'Available' : 'Occupied'}
-          icon={BedDouble}
-          hint="Exclusive Resort Accommodation"
+          title="Total Revenue"
+          value={stats ? formatCurrency(stats.totalRevenue) : '—'}
+          icon={CircleDollarSign}
+        />
+        <StatCard
+          title="Upcoming Check-ins"
+          value={stats?.upcomingCheckIns ?? '—'}
+          icon={LogIn}
+          hint="Next 7 days"
+        />
+        <StatCard
+          title="Upcoming Check-outs"
+          value={stats?.upcomingCheckOuts ?? '—'}
+          icon={LogOut}
+          hint="Next 7 days"
         />
       </div>
 
@@ -69,59 +79,61 @@ export default function AdminDashboardPage() {
             </Button>
           </CardHeader>
           <CardContent className="px-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Reference</TableHead>
-                <TableHead>Guest</TableHead>
-                <TableHead>Check-in</TableHead>
-                <TableHead>Check-out</TableHead>
-                <TableHead className="hidden sm:table-cell">Guests</TableHead>
-                <TableHead className="hidden sm:table-cell">Nights</TableHead>
-                <TableHead>Total</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[1%] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
-                    Loading bookings…
-                  </TableCell>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Guest</TableHead>
+                  <TableHead>Check-in</TableHead>
+                  <TableHead>Check-out</TableHead>
+                  <TableHead className="hidden sm:table-cell">Guests</TableHead>
+                  <TableHead className="hidden sm:table-cell">Nights</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[1%] text-right">Actions</TableHead>
                 </TableRow>
-              ) : recent.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
-                    No bookings yet.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                recent.map((booking) => (
-                  <TableRow key={booking.id}>
-                    <TableCell className="font-medium">{booking.bookingReference}</TableCell>
-                    <TableCell>{booking.customerName}</TableCell>
-                    <TableCell>{format(parseISO(booking.checkIn), 'MMM d, yyyy')}</TableCell>
-                    <TableCell>{format(parseISO(booking.checkOut), 'MMM d, yyyy')}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{booking.adults + booking.children}</TableCell>
-                    <TableCell className="hidden sm:table-cell">{booking.numberOfNights}</TableCell>
-                    <TableCell>{formatCurrency(booking.totalAmount)}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={booking.status} />
-                    </TableCell>
-                    <TableCell className="w-[1%] text-right">
-                      <BookingActions
-                        variant="menu"
-                        booking={booking}
-                        onView={(selected) => navigate(`/admin/bookings/${selected.id}`)}
-                      />
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                      Loading bookings…
                     </TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
+                ) : recent.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                      No bookings yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  recent.map((booking) => (
+                    <TableRow key={booking.id}>
+                      <TableCell className="font-medium">{booking.bookingReference}</TableCell>
+                      <TableCell>{booking.customerName}</TableCell>
+                      <TableCell>{format(parseISO(booking.checkIn), 'MMM d, yyyy')}</TableCell>
+                      <TableCell>{format(parseISO(booking.checkOut), 'MMM d, yyyy')}</TableCell>
+                      <TableCell className="hidden sm:table-cell">
+                        {booking.adults + booking.children}
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{booking.numberOfNights}</TableCell>
+                      <TableCell>{formatCurrency(booking.totalAmount)}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={booking.status} />
+                      </TableCell>
+                      <TableCell className="w-[1%] text-right">
+                        <BookingActions
+                          variant="menu"
+                          booking={booking}
+                          onView={(selected) => navigate(`/admin/bookings/${selected.id}`)}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </CardContent>
         </Card>
       </div>
 
@@ -138,7 +150,7 @@ export default function AdminDashboardPage() {
               </Badge>
             </div>
             <div className="flex items-center justify-between">
-              <span className="text-muted-foreground">Guests currently checked in</span>
+              <span className="text-muted-foreground">Guests currently on-site</span>
               <span className="font-medium">{stats?.currentGuests ?? 0}</span>
             </div>
             <div className="flex items-center justify-between">
@@ -170,7 +182,7 @@ export default function AdminDashboardPage() {
             </Button>
             <Button variant="outline" asChild>
               <Link to="/admin/reports">
-                <LogIn className="h-4 w-4" /> View reports
+                <Users className="h-4 w-4" /> View reports
               </Link>
             </Button>
           </CardContent>

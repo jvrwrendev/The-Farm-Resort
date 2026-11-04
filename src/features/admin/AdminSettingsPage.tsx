@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { RotateCcw, Save } from 'lucide-react'
+import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -9,13 +9,15 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { PageHeading } from '@/features/admin/components'
 import { getSettings, updateSettings } from '@/services/settings.service'
-import { resetMockData } from '@/mock/db'
 import { queryKeys } from '@/lib/queryKeys'
 import type { AppSettings } from '@/types'
 
 export default function AdminSettingsPage() {
   const queryClient = useQueryClient()
-  const { data, isLoading } = useQuery({ queryKey: queryKeys.settings, queryFn: getSettings })
+  const { data, isLoading } = useQuery({
+    queryKey: queryKeys.resortSettings,
+    queryFn: getSettings,
+  })
   const [form, setForm] = useState<AppSettings | null>(null)
 
   useEffect(() => {
@@ -27,7 +29,7 @@ export default function AdminSettingsPage() {
     onSuccess: (updated) => {
       toast.success('Settings saved.')
       setForm({ ...updated })
-      queryClient.invalidateQueries({ queryKey: queryKeys.settings })
+      queryClient.invalidateQueries({ queryKey: queryKeys.resortSettings })
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Unable to save settings.')
@@ -35,10 +37,15 @@ export default function AdminSettingsPage() {
   })
 
   if (isLoading || !form) {
-    return <p className="text-sm text-muted-foreground">Loading settings…</p>
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading settings…
+      </div>
+    )
   }
 
-  const update = (patch: Partial<AppSettings>) => setForm((prev) => (prev ? { ...prev, ...patch } : prev))
+  const update = (patch: Partial<AppSettings>) =>
+    setForm((prev) => (prev ? { ...prev, ...patch } : prev))
 
   const handleSave = () => {
     mutation.mutate({
@@ -55,26 +62,15 @@ export default function AdminSettingsPage() {
     })
   }
 
-  const handleReset = () => {
-    resetMockData()
-    queryClient.invalidateQueries()
-    toast.success('Demo data reset to defaults.')
-  }
-
   return (
     <div className="space-y-6">
       <PageHeading
         title="Settings"
-        description="Resort details, policies, and booking preferences."
+        description="Resort details, policies, and booking preferences — backed by Supabase."
         action={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={handleReset}>
-              <RotateCcw className="h-4 w-4" /> Reset demo data
-            </Button>
-            <Button onClick={handleSave} loading={mutation.isPending}>
-              <Save className="h-4 w-4" /> Save changes
-            </Button>
-          </div>
+          <Button onClick={handleSave} loading={mutation.isPending}>
+            <Save className="h-4 w-4" /> Save changes
+          </Button>
         }
       />
 
@@ -86,21 +82,38 @@ export default function AdminSettingsPage() {
           <CardContent className="space-y-5">
             <div className="space-y-2">
               <Label htmlFor="resortName">Resort name</Label>
-              <Input id="resortName" value={form.resortName} onChange={(e) => update({ resortName: e.target.value })} />
+              <Input
+                id="resortName"
+                value={form.resortName}
+                onChange={(e) => update({ resortName: e.target.value })}
+              />
             </div>
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="settings-email">Email</Label>
-                <Input id="settings-email" type="email" value={form.email} onChange={(e) => update({ email: e.target.value })} />
+                <Input
+                  id="settings-email"
+                  type="email"
+                  value={form.email}
+                  onChange={(e) => update({ email: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="settings-phone">Phone</Label>
-                <Input id="settings-phone" value={form.phone} onChange={(e) => update({ phone: e.target.value })} />
+                <Input
+                  id="settings-phone"
+                  value={form.phone}
+                  onChange={(e) => update({ phone: e.target.value })}
+                />
               </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="settings-address">Address</Label>
-              <Input id="settings-address" value={form.address} onChange={(e) => update({ address: e.target.value })} />
+              <Input
+                id="settings-address"
+                value={form.address}
+                onChange={(e) => update({ address: e.target.value })}
+              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="settings-description">Description</Label>
@@ -121,11 +134,21 @@ export default function AdminSettingsPage() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="checkInTime">Check-in time</Label>
-                <Input id="checkInTime" type="time" value={form.checkInTime} onChange={(e) => update({ checkInTime: e.target.value })} />
+                <Input
+                  id="checkInTime"
+                  type="time"
+                  value={form.checkInTime}
+                  onChange={(e) => update({ checkInTime: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="checkOutTime">Check-out time</Label>
-                <Input id="checkOutTime" type="time" value={form.checkOutTime} onChange={(e) => update({ checkOutTime: e.target.value })} />
+                <Input
+                  id="checkOutTime"
+                  type="time"
+                  value={form.checkOutTime}
+                  onChange={(e) => update({ checkOutTime: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="settings-maxGuests">Guest capacity</Label>
