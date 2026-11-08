@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ImageIcon, X } from 'lucide-react'
 import { PICKLEBALL_GALLERY } from './mockData'
+import { getActiveImages } from '@/features/admin/imageStorage'
 import { cn } from '@/lib/utils'
 
 type TileSize = 'cover' | 'tall' | 'wide' | 'square'
@@ -25,6 +26,16 @@ function tileSizeFor(index: number, total: number): TileSize {
 
 export function PickleballGallery() {
   const [lightbox, setLightbox] = useState<number | null>(null)
+  const gallery = [
+    ...PICKLEBALL_GALLERY,
+    ...getActiveImages('pickleball').map((img) => ({
+      id: img.id,
+      src: img.fileUrl,
+      alt: img.description || img.name,
+      title: img.name,
+      category: 'Managed',
+    })),
+  ]
 
   useEffect(() => {
     if (lightbox === null) return
@@ -33,11 +44,11 @@ export function PickleballGallery() {
       if (event.key === 'Escape') setLightbox(null)
       if (event.key === 'ArrowLeft') {
         setLightbox((current) =>
-          current === null ? null : (current - 1 + PICKLEBALL_GALLERY.length) % PICKLEBALL_GALLERY.length,
+          current === null ? null : (current - 1 + gallery.length) % gallery.length,
         )
       }
       if (event.key === 'ArrowRight') {
-        setLightbox((current) => (current === null ? null : (current + 1) % PICKLEBALL_GALLERY.length))
+        setLightbox((current) => (current === null ? null : (current + 1) % gallery.length))
       }
     }
 
@@ -48,7 +59,7 @@ export function PickleballGallery() {
       document.body.style.overflow = ''
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [lightbox])
+  }, [lightbox, gallery.length])
 
   return (
     <section id="pickleball-gallery" className="scroll-mt-24 bg-muted/40 px-4 py-20 sm:px-6 lg:py-24">
@@ -73,12 +84,12 @@ export function PickleballGallery() {
           </p>
           <p className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
             <ImageIcon className="h-3.5 w-3.5" />
-            {PICKLEBALL_GALLERY.length} photos · click any image to enlarge
+            {gallery.length} photos · click any image to enlarge
           </p>
         </motion.div>
 
         <div className="grid auto-rows-[180px] grid-cols-2 gap-3 md:auto-rows-[200px] md:grid-cols-3 lg:auto-rows-[220px] lg:grid-cols-4">
-          {PICKLEBALL_GALLERY.map((item, index) => (
+          {gallery.map((item, index) => (
             <motion.button
               key={item.id}
               type="button"
@@ -90,7 +101,7 @@ export function PickleballGallery() {
               aria-label={`Open photo: ${item.title}`}
               className={cn(
                 'group relative overflow-hidden rounded-xl bg-muted text-left ring-1 ring-black/5 transition-shadow hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-                TILE_CLASS[tileSizeFor(index, PICKLEBALL_GALLERY.length)],
+                TILE_CLASS[tileSizeFor(index, gallery.length)],
               )}
             >
               <img
@@ -145,7 +156,7 @@ export function PickleballGallery() {
               type="button"
               onClick={(event) => {
                 event.stopPropagation()
-                setLightbox((lightbox - 1 + PICKLEBALL_GALLERY.length) % PICKLEBALL_GALLERY.length)
+                setLightbox((lightbox - 1 + gallery.length) % gallery.length)
               }}
               aria-label="Previous photo"
               className="absolute left-2 rounded-full p-2 text-white transition-colors hover:bg-white/10 sm:left-4"
@@ -162,20 +173,20 @@ export function PickleballGallery() {
               onClick={(event) => event.stopPropagation()}
             >
               <img
-                src={PICKLEBALL_GALLERY[lightbox].src}
-                alt={PICKLEBALL_GALLERY[lightbox].alt}
+                src={gallery[lightbox].src}
+                alt={gallery[lightbox].alt}
                 className="max-h-[78vh] w-auto rounded-lg object-contain"
               />
               <figcaption className="mx-auto mt-3 max-w-2xl text-center text-white">
-                <p className="text-sm font-semibold">{PICKLEBALL_GALLERY[lightbox].title}</p>
-                <p className="mt-0.5 text-xs text-white/65">{PICKLEBALL_GALLERY[lightbox].category}</p>
+                <p className="text-sm font-semibold">{gallery[lightbox].title}</p>
+                <p className="mt-0.5 text-xs text-white/65">{gallery[lightbox].category}</p>
               </figcaption>
             </motion.figure>
             <button
               type="button"
               onClick={(event) => {
                 event.stopPropagation()
-                setLightbox((lightbox + 1) % PICKLEBALL_GALLERY.length)
+                setLightbox((lightbox + 1) % gallery.length)
               }}
               aria-label="Next photo"
               className="absolute right-2 rounded-full p-2 text-white transition-colors hover:bg-white/10 sm:right-4"
@@ -183,7 +194,7 @@ export function PickleballGallery() {
               <ChevronRight className="h-8 w-8" />
             </button>
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white backdrop-blur">
-              {lightbox + 1} / {PICKLEBALL_GALLERY.length}
+              {lightbox + 1} / {gallery.length}
             </div>
           </motion.div>
         )}

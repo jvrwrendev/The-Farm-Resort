@@ -22,6 +22,7 @@ import AdminBookingDetailsPage from '@/features/admin/AdminBookingDetailsPage'
 import AdminCreateBookingPage from '@/features/admin/AdminCreateBookingPage'
 import AdminCalendarPage from '@/features/admin/AdminCalendarPage'
 import AdminAccommodationPage from '@/features/admin/AdminAccommodationPage'
+import AdminImageManagementPage from '@/features/admin/AdminImageManagementPage'
 import AdminCustomersPage from '@/features/admin/AdminCustomersPage'
 import AdminReportsPage from '@/features/admin/AdminReportsPage'
 import AdminSettingsPage from '@/features/admin/AdminSettingsPage'
@@ -148,6 +149,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <AdminRoute title="Accommodation">
                     <AdminAccommodationPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/image-management"
+                element={
+                  <AdminRoute title="Image Management">
+                    <AdminImageManagementPage />
                   </AdminRoute>
                 }
               />

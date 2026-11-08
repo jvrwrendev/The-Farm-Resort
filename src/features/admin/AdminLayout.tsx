@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { Link, NavLink, useNavigate } from 'react-router-dom'
 import {
   BarChart3,
+  Images,
   BedDouble,
   CalendarDays,
   CalendarRange,
@@ -36,6 +37,7 @@ const NAV_SECTIONS = [
       { to: '/admin/pickleball', label: 'Pickleball', icon: Trophy },
       { to: '/admin/accommodation', label: 'Accommodation', icon: BedDouble },
       { to: '/admin/customers', label: 'Customers', icon: Users },
+      { to: '/admin/image-management', label: 'Image Management', icon: Images },
     ],
   },
   {

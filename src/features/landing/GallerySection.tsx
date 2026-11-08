@@ -4,6 +4,7 @@ import { X, ChevronLeft, ChevronRight, ImageIcon, Waves, BedDouble, UtensilsCros
 import { useQuery } from '@tanstack/react-query'
 import { getGallery, getPolicies } from '@/services/resort.service'
 import { MOCK_GALLERY } from '@/features/landing/mockContent'
+import { getActiveImages } from '@/features/admin/imageStorage'
 import type { GalleryItem } from '@/types'
 
 type TileSize = 'cover' | 'tall' | 'wide' | 'square'
@@ -33,7 +34,20 @@ export function GallerySection() {
     staleTime: 5 * 60 * 1000,
   })
 
-  const gallery: GalleryItem[] = (dbGallery && dbGallery.length > 0 ? dbGallery : MOCK_GALLERY).slice().sort(
+  const baseGallery: GalleryItem[] = (dbGallery && dbGallery.length > 0 ? dbGallery : MOCK_GALLERY).slice()
+  const managedGallery: GalleryItem[] = getActiveImages('gallery').map((img, i) => ({
+    id: img.id,
+    image_url: img.fileUrl,
+    storage_path: '',
+    title: img.name,
+    alt_text: img.description || img.name,
+    is_cover: false,
+    sort_order: 1000 + i,
+    is_active: true,
+    created_at: img.uploadedAt,
+    updated_at: img.uploadedAt,
+  }))
+  const gallery: GalleryItem[] = [...baseGallery, ...managedGallery].sort(
     (a, b) => a.sort_order - b.sort_order,
   )
 

@@ -8,6 +8,7 @@ import { getAccommodation } from '@/services/accommodation.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
 import { DEFAULT_ACCOMMODATION_IMAGES } from '@/lib/images'
+import { getActiveImages } from '@/features/admin/imageStorage'
 import { DEFAULT_MAX_GUESTS, DEFAULT_PRICE_PER_NIGHT } from '@/lib/constants'
 
 export function RoomsSection() {
@@ -16,8 +17,10 @@ export function RoomsSection() {
     queryFn: getAccommodation,
   })
 
-  const images =
+  const baseImages =
     accommodation && accommodation.images.length > 0 ? accommodation.images : DEFAULT_ACCOMMODATION_IMAGES
+  const managedImages = getActiveImages('accommodation').map((img) => img.fileUrl)
+  const images = [...baseImages, ...managedImages]
   const [activeImage, setActiveImage] = useState(0)
   const price = accommodation?.pricePerNight ?? DEFAULT_PRICE_PER_NIGHT
   const maxGuests = accommodation?.maxGuests ?? DEFAULT_MAX_GUESTS
