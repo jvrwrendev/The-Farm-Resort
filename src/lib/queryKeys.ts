@@ -13,4 +13,9 @@ export const queryKeys = {
   policies: ['policies'] as const,
   calendarEvents: (from: string, to: string) => ['calendar-events', from, to] as const,
   resortSettings: ['resort-settings'] as const,
+  pickleballBookings: (filters?: unknown) => ['pickleball', 'bookings', filters ?? {}] as const,
+  pickleballBooking: (reference: string) => ['pickleball', 'booking', reference] as const,
+  pickleballAvailability: (courtId: string, date: string) =>
+    ['pickleball', 'availability', courtId, date] as const,
+  pickleballStats: ['pickleball', 'stats'] as const,
 }

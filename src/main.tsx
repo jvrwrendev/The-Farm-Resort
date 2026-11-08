@@ -10,6 +10,11 @@ import { ProtectedRoute } from '@/features/auth/ProtectedRoute'
 import LandingPage from '@/features/landing/LandingPage'
 import BookingPage from '@/features/booking/BookingPage'
 import BookingConfirmationPage from '@/features/booking/BookingConfirmationPage'
+import PickleballPage from '@/features/pickleball/PickleballPage'
+import PickleballBookingPage from '@/features/pickleball/PickleballBookingPage'
+import PickleballConfirmationPage from '@/features/pickleball/PickleballConfirmationPage'
+import AdminPickleballPage from '@/features/pickleball/admin/AdminPickleballPage'
+import AdminPickleballDetailsPage from '@/features/pickleball/admin/AdminPickleballDetailsPage'
 import AdminLoginPage from '@/features/admin/AdminLoginPage'
 import AdminDashboardPage from '@/features/admin/AdminDashboardPage'
 import AdminBookingsPage from '@/features/admin/AdminBookingsPage'
@@ -28,10 +33,17 @@ import './styles/globals.css'
 const queryClient = new QueryClient()
 
 function ScrollToTop() {
-  const { pathname } = useLocation()
+  const { pathname, hash } = useLocation()
   useEffect(() => {
+    if (hash) {
+      const target = document.getElementById(hash.replace('#', ''))
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        return
+      }
+    }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' as ScrollBehavior })
-  }, [pathname])
+  }, [pathname, hash])
   return null
 }
 
@@ -66,6 +78,12 @@ createRoot(document.getElementById('root')!).render(
               <Route path="/" element={<LandingPage />} />
               <Route path="/book" element={<BookingPage />} />
               <Route path="/book/confirmation/:reference" element={<BookingConfirmationPage />} />
+              <Route path="/pickleball" element={<PickleballPage />} />
+              <Route path="/pickleball/book" element={<PickleballBookingPage />} />
+              <Route
+                path="/pickleball/confirmation/:reference"
+                element={<PickleballConfirmationPage />}
+              />
 
               <Route path="/admin/login" element={<AdminLoginPage />} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
@@ -98,6 +116,22 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <AdminRoute title="New booking">
                     <AdminCreateBookingPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/pickleball"
+                element={
+                  <AdminRoute title="Pickleball Bookings">
+                    <AdminPickleballPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/pickleball/:reference"
+                element={
+                  <AdminRoute title="Pickleball Booking Details">
+                    <AdminPickleballDetailsPage />
                   </AdminRoute>
                 }
               />

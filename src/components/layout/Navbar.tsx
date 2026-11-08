@@ -7,10 +7,11 @@ import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { BRAND_NAME, BRAND_LOGO_URL, BRAND_LOGO_ALT } from '@/lib/brand'
 
-const navLinks = [
+const navLinks: Array<{ href: string; label: string; route?: boolean }> = [
   { href: '/#home', label: 'Home' },
   { href: '/#about', label: 'About' },
   { href: '/#rooms', label: 'Accommodation' },
+  { href: '/pickleball', label: 'Pickleball', route: true },
   { href: '/#amenities', label: 'Amenities' },
   { href: '/#gallery', label: 'Gallery' },
   { href: '/#calendar', label: 'Availability' },
@@ -22,9 +23,11 @@ export function Navbar() {
   const { user, isAdmin } = useAuth()
   const location = useLocation()
   const isLanding = location.pathname === '/'
+  const isPickleballPage = location.pathname.startsWith('/pickleball')
+  const showPublicNav = isLanding || isPickleballPage
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50">
+    <header className="fixed top-0 left-0 right-0 z-50 print:hidden">
       <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-background/70 px-4 py-3 shadow-lg backdrop-blur-xl">
           <Link to="/" className="flex min-w-0 items-center gap-2">
@@ -34,17 +37,27 @@ export function Navbar() {
             </span>
           </Link>
 
-          {isLanding && (
-            <div className="hidden md:flex items-center gap-6">
-              {navLinks.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-                >
-                  {link.label}
-                </a>
-              ))}
+          {showPublicNav && (
+            <div className="hidden lg:flex items-center gap-1.5 xl:gap-6">
+              {navLinks.map((link) =>
+                link.route ? (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    className="whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {link.label}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    {link.label}
+                  </a>
+                ),
+              )}
             </div>
           )}
 
@@ -66,11 +79,13 @@ export function Navbar() {
               </Button>
             )}
             <Button variant="luxury" size="sm" asChild className="px-3 sm:px-4">
-              <Link to="/book">Book Now</Link>
+              <Link to={isPickleballPage ? '/pickleball/book' : '/book'}>
+                {isPickleballPage ? 'Book a Court' : 'Book Now'}
+              </Link>
             </Button>
-            {isLanding && (
+            {showPublicNav && (
               <button
-                className="md:hidden p-2"
+                className="lg:hidden p-2"
                 onClick={() => setMobileOpen(!mobileOpen)}
                 aria-label="Toggle menu"
               >
@@ -81,23 +96,34 @@ export function Navbar() {
         </div>
 
         <AnimatePresence>
-          {mobileOpen && isLanding && (
+          {mobileOpen && showPublicNav && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="mt-2 rounded-2xl border bg-background/95 backdrop-blur-xl p-4 md:hidden"
+              className="mt-2 rounded-2xl border bg-background/95 backdrop-blur-xl p-4 lg:hidden"
             >
-              {navLinks.map((link) => (
-                <a
-                  key={link.href}
-                  href={link.href}
-                  className="block py-2 text-sm font-medium"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {link.label}
-                </a>
-              ))}
+              {navLinks.map((link) =>
+                link.route ? (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    className="block py-2 text-sm font-medium"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {link.label}
+                  </Link>
+                ) : (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    className="block py-2 text-sm font-medium"
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {link.label}
+                  </a>
+                ),
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -108,7 +134,7 @@ export function Navbar() {
 
 export function Footer() {
   return (
-    <footer className="border-t bg-muted/30">
+    <footer className="border-t bg-muted/30 print:hidden">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           <div>
@@ -126,6 +152,7 @@ export function Footer() {
               <li><a href="/#home" className="hover:text-foreground transition-colors">Home</a></li>
               <li><Link to="/book" className="hover:text-foreground transition-colors">Book Now</Link></li>
               <li><a href="/#rooms" className="hover:text-foreground transition-colors">Accommodation</a></li>
+              <li><Link to="/pickleball" className="hover:text-foreground transition-colors">Pickleball</Link></li>
               <li><a href="/#gallery" className="hover:text-foreground transition-colors">Gallery</a></li>
             </ul>
           </div>
@@ -147,7 +174,7 @@ export function Footer() {
 
 export function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen flex-col overflow-x-hidden">
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />

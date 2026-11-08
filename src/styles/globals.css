@@ -147,3 +147,24 @@ html {
 .admin-sidebar ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.32);
 }
+
+/* Confirmation summaries should print cleanly without site chrome. */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  header,
+  footer {
+    display: none !important;
+  }
+
+  main {
+    padding-top: 0 !important;
+  }
+
+  body {
+    background: #fff !important;
+    color: #000 !important;
+  }
+}

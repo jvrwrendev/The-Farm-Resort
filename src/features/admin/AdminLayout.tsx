@@ -10,6 +10,7 @@ import {
   LogOut,
   Menu,
   Settings,
+  Trophy,
   UserCog,
   Users,
   X,
@@ -32,6 +33,7 @@ const NAV_SECTIONS = [
     label: 'Management',
     items: [
       { to: '/admin/bookings', label: 'Bookings', icon: CalendarDays },
+      { to: '/admin/pickleball', label: 'Pickleball', icon: Trophy },
       { to: '/admin/accommodation', label: 'Accommodation', icon: BedDouble },
       { to: '/admin/customers', label: 'Customers', icon: Users },
     ],

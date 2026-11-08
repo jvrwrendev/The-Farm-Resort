@@ -26,6 +26,8 @@ export function HeroSection() {
         backgroundSize: 'cover',
         backgroundPosition: 'center center',
         backgroundRepeat: 'no-repeat',
+        backgroundAttachment: 'fixed',
+        width: '100vw',        minHeight: '100vh',
       }}
       aria-label={`${BRAND_NAME} hero`}
     >
