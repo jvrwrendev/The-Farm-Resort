@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, LogIn, User } from 'lucide-react'
+import { Menu, X } from 'lucide-react'
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
@@ -20,7 +20,6 @@ const navLinks: Array<{ href: string; label: string; route?: boolean }> = [
 
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { user, isAdmin } = useAuth()
   const location = useLocation()
   const isLanding = location.pathname === '/'
   const isPickleballPage = location.pathname.startsWith('/pickleball')
@@ -63,21 +62,6 @@ export function Navbar() {
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             <ThemeToggle />
-            {user ? (
-              <Button variant="outline" size="sm" asChild>
-                <Link to="/admin/dashboard">
-                  <User className="h-4 w-4" />
-                  <span className="hidden sm:inline">{isAdmin ? 'Admin' : 'Dashboard'}</span>
-                </Link>
-              </Button>
-            ) : (
-              <Button variant="outline" size="sm" asChild className="px-2.5">
-                <Link to="/admin/login" aria-label="Admin sign in">
-                  <LogIn className="h-4 w-4" />
-                  <span className="hidden sm:inline">Admin Sign In</span>
-                </Link>
-              </Button>
-            )}
             <Button variant="luxury" size="sm" asChild className="px-3 sm:px-4">
               <Link to={isPickleballPage ? '/pickleball/book' : '/book'}>
                 {isPickleballPage ? 'Book a Court' : 'Book Now'}
@@ -133,6 +117,7 @@ export function Navbar() {
 }
 
 export function Footer() {
+  const { user, isAdmin } = useAuth()
   return (
     <footer className="border-t bg-muted/30 print:hidden">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -164,8 +149,14 @@ export function Footer() {
             </ul>
           </div>
         </div>
-        <div className="mt-8 border-t pt-8 text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.
+        <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t pt-8 text-sm text-muted-foreground sm:flex-row">
+          <span>&copy; {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</span>
+          <Link
+            to={user ? '/admin/dashboard' : '/admin/login'}
+            className="text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {user ? (isAdmin ? 'Admin Dashboard' : 'Dashboard') : 'Admin Sign In'}
+          </Link>
         </div>
       </div>
     </footer>
