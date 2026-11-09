@@ -61,7 +61,7 @@ function ActivitySection({
   const rate = activity?.weekdayRate ?? activity?.hourlyRate ?? 0
 
   return (
-    <section className="scroll-mt-24 px-4 py-20 sm:px-6 lg:py-24">
+    <section id={type} className="scroll-mt-28 px-4 py-20 sm:px-6 lg:py-24">
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <motion.div
           initial={{ opacity: 0, x: reverse ? 20 : -20 }}

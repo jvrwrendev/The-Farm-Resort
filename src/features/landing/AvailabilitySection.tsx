@@ -31,7 +31,7 @@ export function AvailabilitySection() {
     selectedDate.getTime() >= new Date(new Date().toDateString()).getTime()
 
   return (
-    <section id="calendar" className="bg-secondary/40 py-20 px-4 sm:px-6 lg:py-24">
+    <section id="calendar" className="scroll-mt-28 bg-secondary/40 py-20 px-4 sm:px-6 lg:py-24">
       <div className="mx-auto max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

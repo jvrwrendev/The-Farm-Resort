@@ -20,7 +20,7 @@ export function HeroSection() {
   return (
     <section
       id="home"
-      className="relative isolate w-full overflow-hidden scroll-mt-24"
+      className="relative isolate w-full overflow-hidden scroll-mt-28"
       style={{
         backgroundImage: `url(${HERO_BACKGROUND_URL})`,
         backgroundSize: 'cover',
@@ -196,7 +196,7 @@ export function AboutSection() {
   ]
 
   return (
-    <section id="about" className="bg-background py-20 px-4 sm:px-6 lg:py-24">
+    <section id="about" className="scroll-mt-28 bg-background py-20 px-4 sm:px-6 lg:py-24">
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-12 lg:grid-cols-2">
         <motion.div
           initial={{ opacity: 0, x: -20 }}

@@ -12,7 +12,7 @@ export function PickleballTeaserSection() {
   const lowestRate = Math.min(...PICKLEBALL_COURTS.map((court) => court.hourlyRate))
 
   return (
-    <section id="pickleball" className="scroll-mt-24 bg-primary px-4 py-20 text-primary-foreground sm:px-6 lg:py-24">
+    <section id="pickleball" className="scroll-mt-28 bg-primary px-4 py-20 text-primary-foreground sm:px-6 lg:py-24">
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <motion.div
           initial={{ opacity: 0, x: -20 }}

@@ -52,6 +52,7 @@ export default function AdminImageManagementPage() {
   const [images, setImages] = useState<ManagedImage[]>(() => loadImages())
   const [pickleballImages, setPickleballImages] = useState<PickleballImage[]>([])
   const [pickleballLoading, setPickleballLoading] = useState(false)
+  const [brokenImageIds, setBrokenImageIds] = useState<Set<string>>(() => new Set())
   const [activeTab, setActiveTab] = useState<ImageCategory>('accommodation')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -101,8 +102,11 @@ export default function AdminImageManagementPage() {
     try {
       const data = await listPickleballImages()
       setPickleballImages(data)
-    } catch {
-      toast.error('Failed to load pickleball images.')
+      setBrokenImageIds(new Set())
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to load pickleball images.',
+      )
     } finally {
       setPickleballLoading(false)
     }
@@ -165,8 +169,8 @@ export default function AdminImageManagementPage() {
       setUploadPreview(null)
       setUploadName('')
       setUploadDesc('')
-    } catch {
-      toast.error('Upload failed. Please try again.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Upload failed. Please try again.')
     } finally {
       setUploading(false)
     }
@@ -204,6 +208,11 @@ export default function AdminImageManagementPage() {
         setPickleballImages((prev) =>
           prev.map((img) => (img.id === updated.id ? updated : img)),
         )
+        setBrokenImageIds((current) => {
+          const next = new Set(current)
+          next.delete(updated.id)
+          return next
+        })
       } else {
         const next = images.map((img) =>
           img.id === editImage.id
@@ -214,8 +223,8 @@ export default function AdminImageManagementPage() {
       }
       toast.success('Image details updated.')
       setEditImage(null)
-    } catch {
-      toast.error('Update failed. Please try again.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Update failed. Please try again.')
     }
   }
 
@@ -254,6 +263,11 @@ export default function AdminImageManagementPage() {
         setPickleballImages((prev) =>
           prev.map((img) => (img.id === updated.id ? updated : img)),
         )
+        setBrokenImageIds((current) => {
+          const next = new Set(current)
+          next.delete(updated.id)
+          return next
+        })
         toast.success('Image replaced successfully.')
         setReplaceImage(null)
         setReplaceFile(null)
@@ -267,8 +281,8 @@ export default function AdminImageManagementPage() {
         setReplaceImage(null)
         setReplacePreview(null)
       }
-    } catch {
-      toast.error('Replace failed. Please try again.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Replace failed. Please try again.')
     } finally {
       setReplacing(false)
     }
@@ -295,8 +309,8 @@ export default function AdminImageManagementPage() {
       toast.success(
         img.displayStatus === 'active' ? 'Image deactivated.' : 'Image activated.',
       )
-    } catch {
-      toast.error('Failed to update status.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update status.')
     }
   }
 
@@ -315,8 +329,8 @@ export default function AdminImageManagementPage() {
       }
       toast.success('Image deleted.')
       setDeleteImage(null)
-    } catch {
-      toast.error('Delete failed. Please try again.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Delete failed. Please try again.')
     }
   }
 
@@ -373,12 +387,26 @@ export default function AdminImageManagementPage() {
                 {tabImages.map((img) => (
                   <Card key={img.id} className="overflow-hidden">
                     <div className="relative aspect-[4/3] bg-muted">
-                      <img
-                        src={img.fileUrl}
-                        alt={img.name}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                      />
+                      {brokenImageIds.has(img.id) ? (
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 px-4 text-center text-muted-foreground">
+                          <ImageIcon className="h-7 w-7" />
+                          <span className="text-xs">Image unavailable</span>
+                        </div>
+                      ) : (
+                        <img
+                          src={img.fileUrl}
+                          alt={img.name}
+                          className="h-full w-full object-cover"
+                          loading="lazy"
+                          onError={() =>
+                            setBrokenImageIds((current) => {
+                              const next = new Set(current)
+                              next.add(img.id)
+                              return next
+                            })
+                          }
+                        />
+                      )}
                       <span
                         className={cn(
                           'absolute left-2 top-2 rounded-full px-2 py-0.5 text-xs font-medium',

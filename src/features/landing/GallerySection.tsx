@@ -45,7 +45,7 @@ export function GallerySection() {
   const [lightbox, setLightbox] = useState<number | null>(null)
 
   return (
-    <section id="gallery" className="bg-muted/40 py-20 px-4 sm:px-6 lg:py-24">
+    <section id="gallery" className="scroll-mt-28 bg-muted/40 py-20 px-4 sm:px-6 lg:py-24">
       <div className="mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -232,7 +232,7 @@ const CURATED_AMENITIES: AmenityCard[] = [
 
 export function AmenitiesSection() {
   return (
-    <section id="amenities" className="bg-background py-20 px-4 sm:px-6 lg:py-24">
+    <section id="amenities" className="scroll-mt-28 bg-background py-20 px-4 sm:px-6 lg:py-24">
       <div className="mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -288,7 +288,7 @@ export function PoliciesSection() {
   })
 
   return (
-    <section id="policies" className="py-20 px-4 bg-muted/30">
+    <section id="policies" className="scroll-mt-28 py-20 px-4 bg-muted/30">
       <div className="mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}

@@ -24,7 +24,7 @@ export function RoomsSection() {
   const amenities = accommodation?.amenities ?? []
 
   return (
-    <section id="rooms" className="bg-secondary/40 py-20 px-4 sm:px-6 lg:py-24">
+    <section id="rooms" className="scroll-mt-28 bg-secondary/40 py-20 px-4 sm:px-6 lg:py-24">
       <div className="mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
