@@ -70,6 +70,7 @@ interface ActivityForm {
   hourlyRate: number
   weekdayRate: number
   weekendRate: number
+  inventoryCount: number
   maxPlayers: number
   openTime: string
   closeTime: string
@@ -84,6 +85,7 @@ const EMPTY_FORM: ActivityForm = {
   hourlyRate: 0,
   weekdayRate: 0,
   weekendRate: 0,
+  inventoryCount: 1,
   maxPlayers: 4,
   openTime: '08:00',
   closeTime: '18:00',
@@ -99,6 +101,7 @@ function activityToForm(activity: Activity): ActivityForm {
     hourlyRate: activity.hourlyRate,
     weekdayRate: activity.weekdayRate,
     weekendRate: activity.weekendRate,
+    inventoryCount: activity.inventoryCount,
     maxPlayers: activity.maxPlayers,
     openTime: activity.openTime,
     closeTime: activity.closeTime,
@@ -200,6 +203,14 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
     }
     if (form.closeTime <= form.openTime) {
       toast.error('Closing time must be after opening time.')
+      return
+    }
+    if (!Number.isInteger(form.inventoryCount) || form.inventoryCount < 1) {
+      toast.error('Inventory must be at least one.')
+      return
+    }
+    if (!Number.isInteger(form.maxPlayers) || form.maxPlayers < 1) {
+      toast.error('Participant capacity must be at least one.')
       return
     }
     setSaving(true)
@@ -310,7 +321,18 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
               />
             </div>
             <div className="space-y-2">
-              <Label>Max participants</Label>
+              <Label>{type === 'atv' ? 'Number of ATVs' : 'Number of tables'}</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.inventoryCount}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, inventoryCount: Number(e.target.value) }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Max participants per {type === 'atv' ? 'ATV' : 'table'}</Label>
               <Input
                 type="number"
                 min={1}
@@ -461,7 +483,10 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
                 <TableHead>Customer</TableHead>
                 <TableHead className="hidden md:table-cell">Date</TableHead>
                 <TableHead className="hidden sm:table-cell">Time</TableHead>
-                <TableHead className="hidden lg:table-cell">Guests</TableHead>
+                <TableHead className="hidden lg:table-cell">
+                  {type === 'atv' ? 'ATVs' : 'Tables'}
+                </TableHead>
+                <TableHead className="hidden xl:table-cell">Guests</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[1%] text-right">Actions</TableHead>
@@ -470,13 +495,13 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
             <TableBody>
               {bookingsLoading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                     Loading reservations…
                   </TableCell>
                 </TableRow>
               ) : filteredBookings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                     No reservations match your filters.
                   </TableCell>
                 </TableRow>
@@ -502,7 +527,8 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
                         to {formatTimeLabel(booking.endTime)}
                       </p>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">{booking.players}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{booking.quantity}</TableCell>
+                    <TableCell className="hidden xl:table-cell">{booking.players}</TableCell>
                     <TableCell>{formatCurrency(booking.totalAmount)}</TableCell>
                     <TableCell>
                       <StatusBadge status={booking.status} />

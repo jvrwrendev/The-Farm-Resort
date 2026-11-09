@@ -28,7 +28,13 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { DatePickerField } from '@/features/booking/DatePickerField'
-import { listActivities, createActivityBooking, isActivityRangeAvailable, listBookingsForActivityDate } from '@/services/activity.service'
+import {
+  listActivities,
+  createActivityBooking,
+  getPeakActivityInventory,
+  isActivityRangeAvailable,
+  listBookingsForActivityDate,
+} from '@/services/activity.service'
 import type { ActivityType } from './types'
 import { activityBookingSchema, type ActivityBookingFormValues } from './schema'
 import {
@@ -50,9 +56,14 @@ const TYPE_LABELS: Record<ActivityType, { title: string; noun: string; icon: typ
   atv: { title: 'ATV Rental', noun: 'ATV', icon: Gauge },
 }
 
-export default function ActivityBookingPage() {
-  const { type = 'billiards' } = useParams<{ type: ActivityType }>()
-  const activityType: ActivityType = type === 'atv' ? 'atv' : 'billiards'
+export default function ActivityBookingPage({
+  activityType: forcedType,
+}: {
+  activityType?: ActivityType
+} = {}) {
+  const params = useParams<{ type: ActivityType }>()
+  const activityType: ActivityType =
+    forcedType ?? (params.type === 'atv' ? 'atv' : 'billiards')
   const meta = TYPE_LABELS[activityType]
 
   const navigate = useNavigate()
@@ -84,6 +95,7 @@ export default function ActivityBookingPage() {
       bookingDate: defaultBookingDate,
       startTime: '',
       durationHours: 1,
+      quantity: 1,
       players: 2,
       notes: '',
     },
@@ -92,6 +104,7 @@ export default function ActivityBookingPage() {
   const bookingDate = watch('bookingDate')
   const startTime = watch('startTime')
   const durationHours = Number(watch('durationHours')) || 1
+  const quantity = Number(watch('quantity')) || 1
   const players = Number(watch('players')) || 0
 
   useEffect(() => {
@@ -123,7 +136,6 @@ export default function ActivityBookingPage() {
 
   const endTime = startTime ? getEndTime(startTime, durationHours) : ''
   const rate = getActivityRate(activity, bookingDate)
-  const total = rate * durationHours
 
   const availabilityQuery = useQuery({
     queryKey: ['activity-availability', activity?.id, bookingDate],
@@ -133,6 +145,26 @@ export default function ActivityBookingPage() {
     },
     enabled: Boolean(activity && bookingDate),
   })
+
+  const availableInventory = useMemo(() => {
+    if (!activity) return 0
+    if (!startTime || !endTime) return activity.inventoryCount
+    const occupied = getPeakActivityInventory(
+      availabilityQuery.data ?? [],
+      startTime,
+      endTime,
+    )
+    return Math.max(0, activity.inventoryCount - occupied)
+  }, [activity, availabilityQuery.data, endTime, startTime])
+
+  useEffect(() => {
+    if (availableInventory > 0 && quantity > availableInventory) {
+      setValue('quantity', availableInventory, { shouldValidate: true })
+    }
+  }, [availableInventory, quantity, setValue])
+
+  const participantCapacity = activity ? activity.maxPlayers * quantity : 0
+  const total = rate * durationHours * quantity
 
   const mutation = useMutation({
     mutationFn: async (values: ActivityBookingFormValues) => {
@@ -146,6 +178,7 @@ export default function ActivityBookingPage() {
         startTime: values.startTime,
         endTime: getEndTime(values.startTime, values.durationHours),
         durationHours: values.durationHours,
+        quantity: Number(values.quantity),
         players: Number(values.players),
         notes: values.notes ?? '',
       })
@@ -153,7 +186,7 @@ export default function ActivityBookingPage() {
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
       toast.success(`Booking received · ${booking.reference}`)
-      navigate(`/activity/confirmation/${booking.reference}`)
+      navigate(`/${activityType}/confirmation/${booking.reference}`)
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Unable to submit the booking.')
@@ -170,14 +203,24 @@ export default function ActivityBookingPage() {
       toast.error('Please choose a shorter duration or an earlier start time.')
       return
     }
+    if (values.quantity > activity.inventoryCount) {
+      toast.error(`You can reserve up to ${activity.inventoryCount} at a time.`)
+      return
+    }
+    const capacity = activity.maxPlayers * values.quantity
+    if (values.players > capacity) {
+      toast.error(`The selected quantity hosts up to ${capacity} participants.`)
+      return
+    }
     const available = await isActivityRangeAvailable(
       activity.id,
       values.bookingDate,
       values.startTime,
       end,
+      values.quantity,
     )
     if (!available) {
-      toast.error('That time slot is no longer available. Please choose another time.')
+      toast.error('Not enough units are available for that time slot.')
       availabilityQuery.refetch()
       return
     }
@@ -258,7 +301,11 @@ export default function ActivityBookingPage() {
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
                       <Users className="h-3 w-3 text-primary" />
-                      Up to {activity.maxPlayers} participants
+                      {activity.inventoryCount}{' '}
+                      {activityType === 'atv'
+                        ? `ATV${activity.inventoryCount === 1 ? '' : 's'}`
+                        : `table${activity.inventoryCount === 1 ? '' : 's'}`}{' '}
+                      · up to {activity.maxPlayers} guests each
                     </span>
                     <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
                       <Check className="h-3 w-3 text-primary" />
@@ -296,7 +343,7 @@ export default function ActivityBookingPage() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                     <div className="space-y-2">
                       <Label>Start time</Label>
                       <Select
@@ -347,14 +394,53 @@ export default function ActivityBookingPage() {
                         <p className="text-sm text-destructive">{errors.durationHours.message}</p>
                       )}
                     </div>
+
+                    <div className="space-y-2">
+                      <Label>{activityType === 'atv' ? 'ATVs' : 'Tables'}</Label>
+                      <Select
+                        value={String(quantity)}
+                        onValueChange={(value) =>
+                          setValue('quantity', Number(value), {
+                            shouldValidate: true,
+                            shouldDirty: true,
+                          })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select quantity" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from(
+                            { length: Math.max(availableInventory, 1) },
+                            (_, index) => index + 1,
+                          ).map((option) => (
+                            <SelectItem
+                              key={option}
+                              value={String(option)}
+                              disabled={option > availableInventory}
+                            >
+                              {option}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.quantity?.message && (
+                        <p className="text-sm text-destructive">{errors.quantity.message}</p>
+                      )}
+                    </div>
                   </div>
 
                   {startTime && endTime && (
                     <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-primary">
                       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
                       <span>
-                        Holding {formatTimeLabel(startTime)} – {formatTimeLabel(endTime)} on{' '}
-                        {formatBookingDate(bookingDate, 'MMM d, yyyy')} for {activity.name}.
+                        {availabilityQuery.isFetching
+                          ? 'Checking availability…'
+                          : `${availableInventory} of ${activity.inventoryCount} ${
+                              activityType === 'atv' ? 'ATVs' : 'tables'
+                            } available from ${formatTimeLabel(startTime)} – ${formatTimeLabel(
+                              endTime,
+                            )} on ${formatBookingDate(bookingDate, 'MMM d, yyyy')}.`}
                       </span>
                     </div>
                   )}
@@ -404,12 +490,15 @@ export default function ActivityBookingPage() {
                         id="activity-players"
                         type="number"
                         min={1}
-                        max={activity.maxPlayers}
+                        max={participantCapacity}
                         error={errors.players?.message}
                         {...register('players')}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Up to {activity.maxPlayers} participants.
+                        Up to {participantCapacity} participants for {quantity}{' '}
+                        {activityType === 'atv'
+                          ? `ATV${quantity === 1 ? '' : 's'}`
+                          : `table${quantity === 1 ? '' : 's'}`}.
                       </p>
                     </div>
                     <div className="space-y-2 sm:col-span-2">
@@ -458,6 +547,12 @@ export default function ActivityBookingPage() {
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground">
+                        {activityType === 'atv' ? 'ATVs' : 'Tables'}
+                      </span>
+                      <span className="font-medium">{quantity}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Participants</span>
                       <span className="font-medium">{players}</span>
                     </div>
@@ -473,7 +568,10 @@ export default function ActivityBookingPage() {
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {rate === activity.weekendRate ? 'Weekend rate' : 'Weekday rate'} applied.
+                        {formatCurrency(rate)} × {durationHours} hour
+                        {durationHours === 1 ? '' : 's'} × {quantity}{' '}
+                        {activityType === 'atv' ? 'ATV' : 'table'}
+                        {quantity === 1 ? '' : 's'}.
                       </p>
                     </div>
                     <Button type="submit" size="lg" className="w-full rounded-full">
@@ -520,11 +618,23 @@ export default function ActivityBookingPage() {
                   {formatTimeLabel(getEndTime(reviewValues.startTime, reviewValues.durationHours))}
                 </span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">
+                  {activityType === 'atv' ? 'ATVs' : 'Tables'}
+                </span>
+                <span className="font-medium">{reviewValues.quantity}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Participants</span>
+                <span className="font-medium">{reviewValues.players}</span>
+              </div>
               <div className="flex justify-between border-t pt-2">
                 <span className="text-muted-foreground">Total</span>
                 <span className="font-semibold text-primary">
                   {formatCurrency(
-                    getActivityRate(activity, reviewValues.bookingDate) * reviewValues.durationHours,
+                    getActivityRate(activity, reviewValues.bookingDate) *
+                      reviewValues.durationHours *
+                      reviewValues.quantity,
                   )}
                 </span>
               </div>

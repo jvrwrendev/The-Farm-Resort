@@ -100,7 +100,10 @@ function ActivitySection({
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-medium">
             {activity && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5">
-                <Users className="h-3.5 w-3.5 text-primary" /> Up to {activity.maxPlayers}
+                <Users className="h-3.5 w-3.5 text-primary" /> {activity.inventoryCount}{' '}
+                {type === 'atv'
+                  ? `ATV${activity.inventoryCount === 1 ? '' : 's'}`
+                  : `table${activity.inventoryCount === 1 ? '' : 's'}`}
               </span>
             )}
             {activity && (
@@ -116,13 +119,13 @@ function ActivitySection({
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Button size="lg" asChild className="rounded-full px-6">
-              <Link to={`/activity/book/${type}`}>
+              <Link to={`/${type}/book`}>
                 <CalendarCheck2 className="h-4 w-4" />
                 Book {type === 'atv' ? 'an ATV' : 'a Table'}
               </Link>
             </Button>
             <Button size="lg" variant="outline" asChild className="rounded-full px-6">
-              <Link to={`/activity/book/${type}`}>
+              <Link to={`/${type}/book`}>
                 View availability
                 <ArrowRight className="h-4 w-4" />
               </Link>

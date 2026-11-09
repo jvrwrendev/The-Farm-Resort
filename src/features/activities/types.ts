@@ -11,6 +11,7 @@ export interface Activity {
   hourlyRate: number
   weekdayRate: number
   weekendRate: number
+  inventoryCount: number
   maxPlayers: number
   isAvailable: boolean
   isActive: boolean
@@ -31,6 +32,7 @@ export interface ActivityBooking {
   startTime: string
   endTime: string
   durationHours: number
+  quantity: number
   players: number
   hourlyRate: number
   totalAmount: number
@@ -49,6 +51,7 @@ export interface ActivityBookingInput {
   startTime: string
   endTime: string
   durationHours: number
+  quantity: number
   players: number
   notes?: string
 }
@@ -61,6 +64,7 @@ export interface ActivityInput {
   hourlyRate: number
   weekdayRate: number
   weekendRate: number
+  inventoryCount: number
   maxPlayers: number
   isAvailable: boolean
   isActive: boolean

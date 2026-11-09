@@ -128,6 +128,15 @@ export default function ActivityConfirmationPage() {
                     <Users className="mt-0.5 h-4 w-4 text-primary" />
                     <div>
                       <p className="text-xs uppercase tracking-wider text-muted-foreground">
+                        {booking.activityType === 'atv' ? 'ATVs' : 'Tables'}
+                      </p>
+                      <p className="text-sm font-medium">{booking.quantity}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-3">
+                    <Users className="mt-0.5 h-4 w-4 text-primary" />
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground">
                         Participants
                       </p>
                       <p className="text-sm font-medium">{booking.players}</p>
@@ -167,7 +176,9 @@ export default function ActivityConfirmationPage() {
                     <p className="text-sm text-muted-foreground">Estimated total</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {formatCurrency(booking.hourlyRate)} × {booking.durationHours} hour
-                      {booking.durationHours === 1 ? '' : 's'}
+                      {booking.durationHours === 1 ? '' : 's'} × {booking.quantity}{' '}
+                      {booking.activityType === 'atv' ? 'ATV' : 'table'}
+                      {booking.quantity === 1 ? '' : 's'}
                     </p>
                   </div>
                   <p className="font-display text-3xl font-bold text-primary">
@@ -184,7 +195,7 @@ export default function ActivityConfirmationPage() {
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Button asChild>
-                <Link to={`/activity/book/${booking.activityType}`}>Book another session</Link>
+                <Link to={`/${booking.activityType}/book`}>Book another session</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link to="/">Back to home</Link>

@@ -96,7 +96,7 @@ export function ActivityCalendarPanel({
     () =>
       monthBookings
         .filter((booking) => BLOCKING_STATUSES.includes(booking.status))
-        .reduce((total, booking) => total + booking.durationHours, 0),
+        .reduce((total, booking) => total + booking.durationHours * booking.quantity, 0),
     [monthBookings],
   )
 
@@ -277,7 +277,8 @@ export function ActivityCalendarPanel({
                       </span>
                       <span className="inline-flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />
-                        {booking.players} guests
+                        {booking.quantity} {type === 'atv' ? 'ATV' : 'table'}
+                        {booking.quantity === 1 ? '' : 's'} · {booking.players} guests
                       </span>
                     </p>
                   </div>
@@ -324,7 +325,7 @@ export function ActivityCalendarPanel({
         <div className="grid grid-cols-2 gap-3">
           <StatCard title="Bookings" value={monthBookings.length} icon={CalendarCheck2} />
           <StatCard title="Pending" value={pendingCount} icon={Clock} />
-          <StatCard title="Hours" value={reservedHours} icon={Clock} />
+          <StatCard title="Unit hours" value={reservedHours} icon={Clock} />
           <StatCard title="Revenue" value={formatCurrency(revenue)} icon={CheckCircle2} />
         </div>
 

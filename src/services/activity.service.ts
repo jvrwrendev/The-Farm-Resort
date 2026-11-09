@@ -20,6 +20,7 @@ interface ActivityRow {
   hourly_rate: number
   weekday_rate: number
   weekend_rate: number
+  inventory_count: number
   max_players: number
   is_available: boolean
   is_active: boolean
@@ -40,7 +41,9 @@ interface ActivityBookingRow {
   start_time: string
   end_time: string
   duration_hours: number
+  quantity: number
   players: number
+  hourly_rate: number
   total_amount: number
   status: ActivityBookingStatus
   notes: string | null
@@ -59,6 +62,7 @@ function rowToActivity(row: ActivityRow): Activity {
     hourlyRate: Number(row.hourly_rate),
     weekdayRate: Number(row.weekday_rate),
     weekendRate: Number(row.weekend_rate),
+    inventoryCount: row.inventory_count,
     maxPlayers: row.max_players,
     isAvailable: row.is_available,
     isActive: row.is_active,
@@ -71,6 +75,7 @@ function rowToBooking(row: ActivityBookingRow): ActivityBooking {
   const activity = Array.isArray(row.activity) ? row.activity[0] : row.activity
   const activityRate = activity ? Number(activity.weekday_rate) : 0
   const duration = Number(row.duration_hours) || 1
+  const quantity = Number(row.quantity) || 1
   return {
     id: row.id,
     reference: row.reference,
@@ -84,8 +89,13 @@ function rowToBooking(row: ActivityBookingRow): ActivityBooking {
     startTime: row.start_time,
     endTime: row.end_time,
     durationHours: duration,
+    quantity,
     players: row.players,
-    hourlyRate: duration > 0 ? Number(row.total_amount) / duration : activityRate,
+    hourlyRate:
+      Number(row.hourly_rate) ||
+      (duration > 0 && quantity > 0
+        ? Number(row.total_amount) / duration / quantity
+        : activityRate),
     totalAmount: Number(row.total_amount),
     status: row.status,
     notes: row.notes ?? '',
@@ -128,6 +138,7 @@ export async function createActivity(input: ActivityInput): Promise<Activity> {
       hourly_rate: input.hourlyRate,
       weekday_rate: input.weekdayRate,
       weekend_rate: input.weekendRate,
+      inventory_count: input.inventoryCount,
       max_players: input.maxPlayers,
       is_available: input.isAvailable,
       is_active: input.isActive,
@@ -152,6 +163,7 @@ export async function updateActivity(
   if (input.hourlyRate !== undefined) patch.hourly_rate = input.hourlyRate
   if (input.weekdayRate !== undefined) patch.weekday_rate = input.weekdayRate
   if (input.weekendRate !== undefined) patch.weekend_rate = input.weekendRate
+  if (input.inventoryCount !== undefined) patch.inventory_count = input.inventoryCount
   if (input.maxPlayers !== undefined) patch.max_players = input.maxPlayers
   if (input.isAvailable !== undefined) patch.is_available = input.isAvailable
   if (input.isActive !== undefined) patch.is_active = input.isActive
@@ -219,25 +231,60 @@ export async function listBookingsForActivityDate(
   return (data ?? []).map((r) => rowToBooking(r as ActivityBookingRow))
 }
 
+export function getPeakActivityInventory(
+  bookings: ActivityBooking[],
+  startTime: string,
+  endTime: string,
+): number {
+  const overlapping = bookings.filter(
+    (booking) => startTime < booking.endTime && endTime > booking.startTime,
+  )
+  const points = [
+    startTime,
+    ...overlapping
+      .map((booking) => booking.startTime)
+      .filter((time) => time > startTime && time < endTime),
+  ]
+
+  return points.reduce((peak, point) => {
+    const occupied = overlapping
+      .filter((booking) => booking.startTime <= point && booking.endTime > point)
+      .reduce((total, booking) => total + booking.quantity, 0)
+    return Math.max(peak, occupied)
+  }, 0)
+}
+
+export async function getAvailableActivityInventory(
+  activityId: string,
+  bookingDate: string,
+  startTime: string,
+  endTime: string,
+): Promise<number> {
+  const [activity, bookings] = await Promise.all([
+    getActivity(activityId),
+    listBookingsForActivityDate(activityId, bookingDate),
+  ])
+  if (!activity) return 0
+  return Math.max(
+    0,
+    activity.inventoryCount - getPeakActivityInventory(bookings, startTime, endTime),
+  )
+}
+
 export async function isActivityRangeAvailable(
   activityId: string,
   bookingDate: string,
   startTime: string,
   endTime: string,
+  quantity = 1,
 ): Promise<boolean> {
-  const bookings = await listBookingsForActivityDate(activityId, bookingDate)
-  return !bookings.some(
-    (booking) => startTime < booking.endTime && endTime > booking.startTime,
+  const available = await getAvailableActivityInventory(
+    activityId,
+    bookingDate,
+    startTime,
+    endTime,
   )
-}
-
-function generateReference(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
-  let code = ''
-  for (let i = 0; i < 6; i += 1) {
-    code += chars[Math.floor(Math.random() * chars.length)]
-  }
-  return `ACT-${code}`
+  return available >= quantity
 }
 
 export async function createActivityBooking(
@@ -256,8 +303,12 @@ export async function createActivityBooking(
       `Bookings are available from ${activity.openTime} to ${activity.closeTime}.`,
     )
   }
-  if (input.players < 1 || input.players > activity.maxPlayers) {
-    throw new Error(`This activity hosts up to ${activity.maxPlayers} participants.`)
+  if (input.quantity < 1 || input.quantity > activity.inventoryCount) {
+    throw new Error(`You can reserve up to ${activity.inventoryCount} at a time.`)
+  }
+  const participantCapacity = activity.maxPlayers * input.quantity
+  if (input.players < 1 || input.players > participantCapacity) {
+    throw new Error(`The selected quantity hosts up to ${participantCapacity} participants.`)
   }
 
   const available = await isActivityRangeAvailable(
@@ -265,38 +316,35 @@ export async function createActivityBooking(
     input.bookingDate,
     input.startTime,
     input.endTime,
+    input.quantity,
   )
   if (!available) {
-    throw new Error('That time slot is no longer available. Please choose another time.')
+    throw new Error('Not enough units are available for that time slot.')
   }
 
-  const date = new Date(`${input.bookingDate}T00:00:00`)
-  const isWeekend = date.getDay() === 0 || date.getDay() === 6
-  const rate = isWeekend ? activity.weekendRate : activity.weekdayRate
-  const total = rate * input.durationHours
-  const reference = generateReference()
-
   const { data, error } = await supabase
-    .from('activity_bookings')
-    .insert({
-      reference,
-      customer_name: input.customerName.trim(),
-      email: input.email.trim(),
-      contact_number: input.contactNumber.trim(),
-      activity_id: input.activityId,
-      booking_date: input.bookingDate,
-      start_time: input.startTime,
-      end_time: input.endTime,
-      duration_hours: input.durationHours,
-      players: input.players,
-      total_amount: total,
-      status: 'pending',
-      notes: input.notes?.trim() || null,
+    .rpc('create_activity_booking', {
+      p_activity_id: input.activityId,
+      p_customer_name: input.customerName.trim(),
+      p_email: input.email.trim(),
+      p_contact_number: input.contactNumber.trim(),
+      p_booking_date: input.bookingDate,
+      p_start_time: input.startTime,
+      p_end_time: input.endTime,
+      p_duration_hours: input.durationHours,
+      p_players: input.players,
+      p_quantity: input.quantity,
+      p_notes: input.notes?.trim() || null,
     })
-    .select('*, activity:activities(*)')
-    .single()
   if (error) throw new Error(mapPostgrestError(error))
-  return rowToBooking(data as ActivityBookingRow)
+
+  const result = Array.isArray(data) ? data[0] : data
+  const reference = (result as { reference?: string } | null)?.reference
+  if (!reference) throw new Error('Unable to retrieve the new booking.')
+
+  const booking = await getActivityBookingByReference(reference)
+  if (!booking) throw new Error('Unable to retrieve the new booking.')
+  return booking
 }
 
 export async function getActivityBookingByReference(

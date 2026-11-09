@@ -94,6 +94,16 @@ createRoot(document.getElementById('root')!).render(
                 path="/activity/confirmation/:reference"
                 element={<ActivityConfirmationPage />}
               />
+              <Route
+                path="/billiards/book"
+                element={<ActivityBookingPage activityType="billiards" />}
+              />
+              <Route path="/atv/book" element={<ActivityBookingPage activityType="atv" />} />
+              <Route
+                path="/billiards/confirmation/:reference"
+                element={<ActivityConfirmationPage />}
+              />
+              <Route path="/atv/confirmation/:reference" element={<ActivityConfirmationPage />} />
 
               <Route path="/admin/login" element={<AdminLoginPage />} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />

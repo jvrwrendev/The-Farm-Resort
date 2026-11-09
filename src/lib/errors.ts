@@ -21,6 +21,17 @@ const FRIENDLY_RPC_MESSAGES: Record<string, string> = {
   CANNOT_REOPEN_COMPLETED: 'Completed bookings cannot be reopened.',
   NOT_AUTHORIZED: 'You are not authorized to perform that action.',
   INVALID_CREDENTIALS: 'Invalid email or password.',
+  ACTIVITY_NOT_FOUND: 'The selected activity could not be found.',
+  ACTIVITY_UNAVAILABLE: 'This activity is not currently available for booking.',
+  ACTIVITY_PAST_DATE: 'Please choose a future booking date.',
+  ACTIVITY_INVALID_TIME: 'End time must be after start time.',
+  ACTIVITY_OUTSIDE_HOURS: 'The selected time is outside operating hours.',
+  ACTIVITY_INVALID_QUANTITY: 'Duration and quantity must be at least one.',
+  ACTIVITY_INVENTORY_EXCEEDED: 'The requested quantity exceeds available inventory.',
+  ACTIVITY_PARTICIPANT_CAPACITY:
+    'The participant count exceeds capacity for the selected quantity.',
+  ACTIVITY_INSUFFICIENT_INVENTORY:
+    'Not enough units are available for that time slot. Please choose another time or quantity.',
 }
 
 export function mapSupabaseError(error: unknown): string {
@@ -54,7 +65,7 @@ export function mapPostgrestError(err: PostgrestError | null | undefined): strin
   }
   if (err.code === '23505') return 'This record already exists.'
   if (err.code === '42501') return "You don't have permission to do that."
-  return mapSupabaseError({ message: err.message } as Error)
+  return mapSupabaseError(new Error(err.message))
 }
 
 /** Used for Auth-shaped errors (sign-in, update). */
