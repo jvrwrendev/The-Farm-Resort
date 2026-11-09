@@ -267,12 +267,18 @@ export default function PickleballBookingPage() {
                           )}
                         >
                           <div className="relative aspect-[16/9] overflow-hidden bg-muted">
-                            <img
-                              src={option.imageUrl}
-                              alt={option.name}
-                              className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                              loading="lazy"
-                            />
+                            {option.imageUrl ? (
+                              <img
+                                src={option.imageUrl}
+                                alt={option.name}
+                                className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                loading="lazy"
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+                                No image
+                              </div>
+                            )}
                             {selected && (
                               <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
                                 <Check className="h-3.5 w-3.5" />

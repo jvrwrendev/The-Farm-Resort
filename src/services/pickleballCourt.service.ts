@@ -2,6 +2,8 @@ import { supabase } from '@/lib/supabase'
 import { mapPostgrestError } from '@/lib/errors'
 import type { PickleballCourt } from '@/features/pickleball/types'
 
+const IMAGE_BUCKET = 'pickleball-images'
+
 interface CourtRow {
   id: string
   name: string
@@ -142,4 +144,21 @@ export async function deletePickleballCourt(id: string): Promise<void> {
 
 export async function togglePickleballCourtStatus(id: string, isActive: boolean): Promise<PickleballCourt> {
   return updatePickleballCourt(id, { isActive })
+}
+
+export async function uploadPickleballCourtImage(file: File): Promise<string> {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `courts/${crypto.randomUUID()}.${ext}`
+  const { data, error } = await supabase.storage
+    .from(IMAGE_BUCKET)
+    .upload(path, file, { upsert: false })
+  if (error) throw new Error(error.message)
+
+  const storagePath = data?.path ?? path
+  const { data: publicData } = supabase.storage.from(IMAGE_BUCKET).getPublicUrl(storagePath)
+  const { data: signedData } = await supabase.storage
+    .from(IMAGE_BUCKET)
+    .createSignedUrl(storagePath, 60 * 60 * 24 * 365)
+
+  return signedData?.signedUrl ?? publicData.publicUrl
 }

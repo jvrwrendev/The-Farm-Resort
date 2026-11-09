@@ -26,6 +26,10 @@ insert into storage.buckets (id, name, public)
   values ('pickleball-images', 'pickleball-images', true)
   on conflict (id) do nothing;
 
+-- The bucket may have been created manually before this migration.
+drop policy if exists "pickleball-images public read" on storage.objects;
+drop policy if exists "pickleball-images admin write" on storage.objects;
+
 create policy "pickleball-images public read"
   on storage.objects for select
   using (bucket_id = 'pickleball-images');

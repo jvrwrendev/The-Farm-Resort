@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from 'react'
-import { Plus, Pencil, Trash2, ToggleLeft, ToggleRight, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { ImagePlus, Loader2, Pencil, Plus, ToggleLeft, ToggleRight, Trash2, Upload } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
@@ -13,8 +13,12 @@ import {
   updatePickleballCourt,
   deletePickleballCourt,
   togglePickleballCourtStatus,
+  uploadPickleballCourtImage,
   type CourtInput,
 } from '@/services/pickleballCourt.service'
+
+const ACCEPTED_IMAGES = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+const MAX_IMAGE_SIZE = 2 * 1024 * 1024
 import type { PickleballCourt } from '@/features/pickleball/types'
 
 const emptyForm: CourtInput = {
@@ -44,6 +48,10 @@ export default function AdminPickleballCourtsPage() {
   const [saving, setSaving] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<PickleballCourt | null>(null)
   const [amenityInput, setAmenityInput] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imagePreview, setImagePreview] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchCourts = useCallback(async () => {
     setLoading(true)
@@ -61,10 +69,18 @@ export default function AdminPickleballCourtsPage() {
     fetchCourts()
   }, [fetchCourts])
 
+  const resetImageState = () => {
+    setImageFile(null)
+    setImagePreview('')
+    setUploadingImage(false)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
   const openCreate = () => {
     setEditing(null)
     setForm(emptyForm)
     setAmenityInput('')
+    resetImageState()
     setDialogOpen(true)
   }
 
@@ -88,7 +104,29 @@ export default function AdminPickleballCourtsPage() {
       closeTime: court.closeTime,
     })
     setAmenityInput('')
+    resetImageState()
     setDialogOpen(true)
+  }
+
+  const handleImageSelected = (file: File) => {
+    if (!ACCEPTED_IMAGES.includes(file.type)) {
+      toast.error('Unsupported file type. Please use JPG, PNG, or WebP.')
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      toast.error('File is too large. Maximum size is 2 MB.')
+      return
+    }
+    setImageFile(file)
+    const reader = new FileReader()
+    reader.onload = () => setImagePreview(reader.result as string)
+    reader.onerror = () => toast.error('Could not read file.')
+    reader.readAsDataURL(file)
+  }
+
+  const removeImage = () => {
+    setForm((prev) => ({ ...prev, imageUrl: '' }))
+    resetImageState()
   }
 
   const handleSave = async () => {
@@ -98,18 +136,30 @@ export default function AdminPickleballCourtsPage() {
     }
     setSaving(true)
     try {
+      let imageUrl = form.imageUrl
+      if (imageFile) {
+        setUploadingImage(true)
+        try {
+          imageUrl = await uploadPickleballCourtImage(imageFile)
+        } finally {
+          setUploadingImage(false)
+        }
+      }
+
+      const payload = { ...form, imageUrl }
       if (editing) {
-        const updated = await updatePickleballCourt(editing.id, form)
+        const updated = await updatePickleballCourt(editing.id, payload)
         setCourts((prev) => prev.map((c) => (c.id === updated.id ? updated : c)))
         toast.success('Court updated.')
       } else {
-        const created = await createPickleballCourt(form)
+        const created = await createPickleballCourt(payload)
         setCourts((prev) => [...prev, created])
         toast.success('Court created.')
       }
       setDialogOpen(false)
-    } catch {
-      toast.error('Failed to save court.')
+      resetImageState()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save court.')
     } finally {
       setSaving(false)
     }
@@ -237,7 +287,15 @@ export default function AdminPickleballCourtsPage() {
       )}
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={(o) => !o && setDialogOpen(false)}>
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(o) => {
+          if (!o) {
+            setDialogOpen(false)
+            resetImageState()
+          }
+        }}
+      >
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Edit Court' : 'Add Court'}</DialogTitle>
@@ -255,9 +313,55 @@ export default function AdminPickleballCourtsPage() {
               <Label>Description</Label>
               <Textarea value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} rows={3} />
             </div>
-            <div className="space-y-2">
-              <Label>Image URL</Label>
-              <Input value={form.imageUrl} onChange={(e) => setForm((f) => ({ ...f, imageUrl: e.target.value }))} />
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Court image</Label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="flex h-28 w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted">
+                  {imagePreview || form.imageUrl ? (
+                    <img
+                      src={imagePreview || form.imageUrl}
+                      alt={form.name || 'Court image'}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImagePlus className="h-7 w-7 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) handleImageSelected(file)
+                      e.target.value = ''
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={saving || uploadingImage}
+                    >
+                      {uploadingImage ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      {imagePreview || form.imageUrl ? 'Replace image' : 'Upload image'}
+                    </Button>
+                    {(imagePreview || form.imageUrl) && (
+                      <Button type="button" variant="ghost" onClick={removeImage} disabled={saving}>
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, or WebP · max 2 MB</p>
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Surface</Label>
@@ -321,8 +425,14 @@ export default function AdminPickleballCourtsPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)} disabled={saving}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : editing ? 'Save' : 'Create'}
+            <Button onClick={handleSave} disabled={saving || uploadingImage}>
+              {saving || uploadingImage ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : editing ? (
+                'Save'
+              ) : (
+                'Create'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
