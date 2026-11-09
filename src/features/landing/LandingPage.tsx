@@ -5,6 +5,7 @@ import { GallerySection, AmenitiesSection, PoliciesSection } from '@/features/la
 import { AvailabilitySection } from '@/features/landing/AvailabilitySection'
 import { ChatbotWidget } from '@/features/landing/ChatbotWidget'
 import { PickleballTeaserSection } from '@/features/pickleball/PickleballTeaserSection'
+import { ActivityTeaserSections } from '@/features/activities/ActivityTeaserSections'
 
 export default function LandingPage() {
   return (
@@ -13,6 +14,7 @@ export default function LandingPage() {
       <AboutSection />
       <RoomsSection />
       <PickleballTeaserSection />
+      <ActivityTeaserSections />
       <AmenitiesSection />
       <GallerySection />
       <AvailabilitySection />

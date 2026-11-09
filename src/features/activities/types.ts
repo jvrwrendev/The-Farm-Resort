@@ -1,0 +1,78 @@
+export type ActivityType = 'billiards' | 'atv'
+
+export type ActivityBookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
+
+export interface Activity {
+  id: string
+  type: ActivityType
+  name: string
+  description: string
+  imageUrl: string
+  hourlyRate: number
+  weekdayRate: number
+  weekendRate: number
+  maxPlayers: number
+  isAvailable: boolean
+  isActive: boolean
+  openTime: string
+  closeTime: string
+}
+
+export interface ActivityBooking {
+  id: string
+  reference: string
+  customerName: string
+  email: string
+  contactNumber: string
+  activityId: string
+  activityType: ActivityType
+  activityName: string
+  bookingDate: string
+  startTime: string
+  endTime: string
+  durationHours: number
+  players: number
+  hourlyRate: number
+  totalAmount: number
+  status: ActivityBookingStatus
+  notes: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ActivityBookingInput {
+  activityId: string
+  customerName: string
+  email: string
+  contactNumber: string
+  bookingDate: string
+  startTime: string
+  endTime: string
+  durationHours: number
+  players: number
+  notes?: string
+}
+
+export interface ActivityInput {
+  type: ActivityType
+  name: string
+  description?: string
+  imageUrl?: string
+  hourlyRate: number
+  weekdayRate: number
+  weekendRate: number
+  maxPlayers: number
+  isAvailable: boolean
+  isActive: boolean
+  openTime: string
+  closeTime: string
+}
+
+export interface ActivityStats {
+  total: number
+  pending: number
+  confirmed: number
+  completed: number
+  cancelled: number
+  revenue: number
+}

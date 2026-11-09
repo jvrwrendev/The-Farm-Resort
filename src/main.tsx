@@ -16,6 +16,9 @@ import PickleballConfirmationPage from '@/features/pickleball/PickleballConfirma
 import AdminPickleballPage from '@/features/pickleball/admin/AdminPickleballPage'
 import AdminPickleballDetailsPage from '@/features/pickleball/admin/AdminPickleballDetailsPage'
 import AdminPickleballCourtsPage from '@/features/admin/AdminPickleballCourtsPage'
+import AdminActivitiesPage from '@/features/admin/AdminActivitiesPage'
+import ActivityBookingPage from '@/features/activities/ActivityBookingPage'
+import ActivityConfirmationPage from '@/features/activities/ActivityConfirmationPage'
 import AdminLoginPage from '@/features/admin/AdminLoginPage'
 import AdminDashboardPage from '@/features/admin/AdminDashboardPage'
 import AdminBookingsPage from '@/features/admin/AdminBookingsPage'
@@ -86,6 +89,11 @@ createRoot(document.getElementById('root')!).render(
                 path="/pickleball/confirmation/:reference"
                 element={<PickleballConfirmationPage />}
               />
+              <Route path="/activity/book/:type" element={<ActivityBookingPage />} />
+              <Route
+                path="/activity/confirmation/:reference"
+                element={<ActivityConfirmationPage />}
+              />
 
               <Route path="/admin/login" element={<AdminLoginPage />} />
               <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
@@ -142,6 +150,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <AdminRoute title="Pickleball Courts">
                     <AdminPickleballCourtsPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/activities"
+                element={
+                  <AdminRoute title="Activities">
+                    <AdminActivitiesPage />
                   </AdminRoute>
                 }
               />

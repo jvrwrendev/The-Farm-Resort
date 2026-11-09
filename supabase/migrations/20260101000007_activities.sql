@@ -2,7 +2,7 @@
 
 create table if not exists public.activities (
   id uuid primary key default gen_random_uuid(),
-  type text not null check (type in ('billiards','atv')),
+  type text not null unique check (type in ('billiards','atv')),
   name text not null,
   description text,
   image_url text,

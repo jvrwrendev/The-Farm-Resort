@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { addMonths, format, parseISO, subMonths } from 'date-fns'
-import { BedDouble, ChevronLeft, ChevronRight, Trophy } from 'lucide-react'
+import { BedDouble, ChevronLeft, ChevronRight, CircleDot, Gauge, Trophy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -15,17 +15,21 @@ import {
   type CalendarStatus,
 } from '@/features/admin/calendarStatus'
 import { PickleballCalendarPanel } from '@/features/pickleball/admin/PickleballCalendarPanel'
+import { ActivityCalendarPanel } from '@/features/activities/admin/ActivityCalendarPanel'
 import { getBookings } from '@/services/admin.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn } from '@/lib/utils'
 
-type CalendarTab = 'accommodation' | 'pickleball'
+type CalendarTab = 'accommodation' | 'pickleball' | 'billiards' | 'atv'
+
+const VALID_TABS: CalendarTab[] = ['accommodation', 'pickleball', 'billiards', 'atv']
 
 export default function AdminCalendarPage() {
   const [searchParams] = useSearchParams()
-  const [activeTab, setActiveTab] = useState<CalendarTab>(() =>
-    searchParams.get('tab') === 'pickleball' ? 'pickleball' : 'accommodation',
-  )
+  const [activeTab, setActiveTab] = useState<CalendarTab>(() => {
+    const tab = searchParams.get('tab')
+    return tab && VALID_TABS.includes(tab as CalendarTab) ? (tab as CalendarTab) : 'accommodation'
+  })
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
   const [visible, setVisible] = useState<Record<CalendarStatus, boolean>>({
@@ -37,8 +41,8 @@ export default function AdminCalendarPage() {
 
   useEffect(() => {
     const tabParam = searchParams.get('tab')
-    if (tabParam === 'pickleball' || tabParam === 'accommodation') {
-      setActiveTab(tabParam)
+    if (tabParam && VALID_TABS.includes(tabParam as CalendarTab)) {
+      setActiveTab(tabParam as CalendarTab)
     }
 
     const dateParam = searchParams.get('date')
@@ -61,7 +65,7 @@ export default function AdminCalendarPage() {
     <div className="space-y-6">
       <PageHeading
         title="Calendar"
-        description="Accommodation and pickleball reservations at a glance."
+        description="Accommodation, pickleball, billiards, and ATV reservations at a glance."
       />
 
       <Tabs
@@ -77,6 +81,14 @@ export default function AdminCalendarPage() {
           <TabsTrigger value="pickleball" className="gap-2">
             <Trophy className="h-4 w-4" />
             Pickleball
+          </TabsTrigger>
+          <TabsTrigger value="billiards" className="gap-2">
+            <CircleDot className="h-4 w-4" />
+            Billiards
+          </TabsTrigger>
+          <TabsTrigger value="atv" className="gap-2">
+            <Gauge className="h-4 w-4" />
+            ATV
           </TabsTrigger>
         </TabsList>
 
@@ -150,6 +162,28 @@ export default function AdminCalendarPage() {
 
         <TabsContent value="pickleball" className="mt-0">
           <PickleballCalendarPanel
+            currentMonth={currentMonth}
+            selectedDate={selectedDate}
+            visible={visible}
+            onSelectDate={setSelectedDate}
+          />
+        </TabsContent>
+
+        <TabsContent value="billiards" className="mt-0">
+          <ActivityCalendarPanel
+            type="billiards"
+            label="Billiards"
+            currentMonth={currentMonth}
+            selectedDate={selectedDate}
+            visible={visible}
+            onSelectDate={setSelectedDate}
+          />
+        </TabsContent>
+
+        <TabsContent value="atv" className="mt-0">
+          <ActivityCalendarPanel
+            type="atv"
+            label="ATV Rental"
             currentMonth={currentMonth}
             selectedDate={selectedDate}
             visible={visible}

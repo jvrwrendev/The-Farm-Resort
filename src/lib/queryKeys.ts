@@ -18,4 +18,7 @@ export const queryKeys = {
   pickleballAvailability: (courtId: string, date: string) =>
     ['pickleball', 'availability', courtId, date] as const,
   pickleballStats: ['pickleball', 'stats'] as const,
+  activities: (type?: string) => ['activities', type ?? 'all'] as const,
+  activityBookings: (type?: string) => ['activity-bookings', type ?? 'all'] as const,
+  activityBooking: (reference: string) => ['activity-booking', reference] as const,
 }
