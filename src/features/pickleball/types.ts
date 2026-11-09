@@ -9,10 +9,16 @@ export interface PickleballCourt {
   description: string
   imageUrl: string
   hourlyRate: number
+  weekdayRate: number
+  weekendRate: number
   maxPlayers: number
   surface: string
   isCovered: boolean
   amenities: string[]
+  isAvailable: boolean
+  isActive: boolean
+  openTime: string
+  closeTime: string
 }
 
 export type PickleballGalleryCategory =

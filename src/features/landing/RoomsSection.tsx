@@ -7,7 +7,6 @@ import { Button } from '@/components/ui/button'
 import { getAccommodation } from '@/services/accommodation.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
-import { DEFAULT_ACCOMMODATION_IMAGES } from '@/lib/images'
 import { getActiveImages } from '@/features/admin/imageStorage'
 import { DEFAULT_MAX_GUESTS, DEFAULT_PRICE_PER_NIGHT } from '@/lib/constants'
 
@@ -17,10 +16,8 @@ export function RoomsSection() {
     queryFn: getAccommodation,
   })
 
-  const baseImages =
-    accommodation && accommodation.images.length > 0 ? accommodation.images : DEFAULT_ACCOMMODATION_IMAGES
   const managedImages = getActiveImages('accommodation').map((img) => img.fileUrl)
-  const images = [...baseImages, ...managedImages]
+  const images = managedImages
   const [activeImage, setActiveImage] = useState(0)
   const price = accommodation?.pricePerNight ?? DEFAULT_PRICE_PER_NIGHT
   const maxGuests = accommodation?.maxGuests ?? DEFAULT_MAX_GUESTS
@@ -56,32 +53,40 @@ export function RoomsSection() {
             transition={{ duration: 0.6 }}
             className="space-y-4"
           >
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted shadow-sm">
-              <img
-                src={images[activeImage]}
-                alt={accommodation?.name ?? 'Exclusive Resort Accommodation'}
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground shadow-sm">
-                <BedDouble className="h-3.5 w-3.5" />
-                Exclusive booking
+            {images.length === 0 ? (
+              <div className="rounded-2xl border border-dashed bg-card p-10 text-center text-sm text-muted-foreground">
+                No accommodation images uploaded yet.
               </div>
-            </div>
-            {images.length > 1 && (
-              <div className="grid grid-cols-4 gap-3">
-                {images.slice(0, 4).map((image, index) => (
-                  <button
-                    key={image}
-                    type="button"
-                    onClick={() => setActiveImage(index)}
-                    className={`relative aspect-square overflow-hidden rounded-xl border-2 transition-colors ${
-                      activeImage === index ? 'border-primary' : 'border-transparent opacity-80 hover:opacity-100'
-                    }`}
-                  >
-                    <img src={image} alt="" className="h-full w-full object-cover" loading="lazy" />
-                  </button>
-                ))}
-              </div>
+            ) : (
+              <>
+                <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-muted shadow-sm">
+                  <img
+                    src={images[activeImage]}
+                    alt={accommodation?.name ?? 'Exclusive Resort Accommodation'}
+                    className="h-full w-full object-cover"
+                  />
+                  <div className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground shadow-sm">
+                    <BedDouble className="h-3.5 w-3.5" />
+                    Exclusive booking
+                  </div>
+                </div>
+                {images.length > 1 && (
+                  <div className="grid grid-cols-4 gap-3">
+                    {images.slice(0, 4).map((image, index) => (
+                      <button
+                        key={image}
+                        type="button"
+                        onClick={() => setActiveImage(index)}
+                        className={`relative aspect-square overflow-hidden rounded-xl border-2 transition-colors ${
+                          activeImage === index ? 'border-primary' : 'border-transparent opacity-80 hover:opacity-100'
+                        }`}
+                      >
+                        <img src={image} alt="" className="h-full w-full object-cover" loading="lazy" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
 

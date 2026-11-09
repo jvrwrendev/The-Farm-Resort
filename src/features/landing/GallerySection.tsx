@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, ChevronLeft, ChevronRight, ImageIcon, Waves, BedDouble, UtensilsCrossed, Wifi, Car, Trees } from 'lucide-react'
+import { getPolicies } from '@/services/resort.service'
 import { useQuery } from '@tanstack/react-query'
-import { getGallery, getPolicies } from '@/services/resort.service'
-import { MOCK_GALLERY } from '@/features/landing/mockContent'
 import { getActiveImages } from '@/features/admin/imageStorage'
 import type { GalleryItem } from '@/types'
 
@@ -27,14 +26,6 @@ const TILE_CLASS: Record<TileSize, string> = {
 }
 
 export function GallerySection() {
-  const { data: dbGallery } = useQuery({
-    queryKey: ['gallery'],
-    queryFn: getGallery,
-    retry: false,
-    staleTime: 5 * 60 * 1000,
-  })
-
-  const baseGallery: GalleryItem[] = (dbGallery && dbGallery.length > 0 ? dbGallery : MOCK_GALLERY).slice()
   const managedGallery: GalleryItem[] = getActiveImages('gallery').map((img, i) => ({
     id: img.id,
     image_url: img.fileUrl,
@@ -47,7 +38,7 @@ export function GallerySection() {
     created_at: img.uploadedAt,
     updated_at: img.uploadedAt,
   }))
-  const gallery: GalleryItem[] = [...baseGallery, ...managedGallery].sort(
+  const gallery: GalleryItem[] = managedGallery.sort(
     (a, b) => a.sort_order - b.sort_order,
   )
 

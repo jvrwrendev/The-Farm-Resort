@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Image as ImageIcon, Upload, X, Eye, Edit, Trash2, RefreshCw, CheckCircle2, CircleDashed } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -10,6 +10,15 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { loadImages, saveImages, type ImageCategory, type ManagedImage } from './imageStorage'
+import {
+  listPickleballImages,
+  uploadPickleballImage,
+  updatePickleballImage,
+  replacePickleballImage,
+  togglePickleballImageStatus,
+  deletePickleballImage,
+} from '@/services/pickleballImage.service'
+import type { PickleballImage } from '@/services/pickleballImage.service'
 
 const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_SIZE = 2 * 1024 * 1024 // 2 MB
@@ -41,6 +50,8 @@ function validateFile(file: File): string | null {
 
 export default function AdminImageManagementPage() {
   const [images, setImages] = useState<ManagedImage[]>(() => loadImages())
+  const [pickleballImages, setPickleballImages] = useState<PickleballImage[]>([])
+  const [pickleballLoading, setPickleballLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<ImageCategory>('accommodation')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -56,6 +67,7 @@ export default function AdminImageManagementPage() {
   const [editDesc, setEditDesc] = useState('')
 
   const [replaceImage, setReplaceImage] = useState<ManagedImage | null>(null)
+  const [replaceFile, setReplaceFile] = useState<File | null>(null)
   const [replacePreview, setReplacePreview] = useState<string | null>(null)
   const [replacing, setReplacing] = useState(false)
 
@@ -64,15 +76,41 @@ export default function AdminImageManagementPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const replaceInputRef = useRef<HTMLInputElement>(null)
 
-  const tabImages = useMemo(
-    () => images.filter((img) => img.category === activeTab),
-    [images, activeTab],
-  )
+  const tabImages = useMemo(() => {
+    if (activeTab === 'pickleball') {
+      return pickleballImages.map((img) => ({
+        id: img.id,
+        name: img.name,
+        description: img.description,
+        category: 'pickleball' as ImageCategory,
+        displayStatus: img.status,
+        fileUrl: img.url,
+        uploadedAt: img.createdAt,
+      }))
+    }
+    return images.filter((img) => img.category === activeTab)
+  }, [activeTab, images, pickleballImages])
 
   const persist = useCallback((next: ManagedImage[]) => {
     setImages(next)
     saveImages(next)
   }, [])
+
+  const fetchPickleballImages = useCallback(async () => {
+    setPickleballLoading(true)
+    try {
+      const data = await listPickleballImages()
+      setPickleballImages(data)
+    } catch {
+      toast.error('Failed to load pickleball images.')
+    } finally {
+      setPickleballLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchPickleballImages()
+  }, [fetchPickleballImages])
 
   // ---- Upload flow ----
   const handleFileSelected = (file: File) => {
@@ -105,16 +143,21 @@ export default function AdminImageManagementPage() {
     }
     setUploading(true)
     try {
-      const newImage: ManagedImage = {
-        id: crypto.randomUUID(),
-        name: uploadName.trim(),
-        description: uploadDesc.trim(),
-        category: activeTab,
-        displayStatus: 'active',
-        fileUrl: uploadPreview,
-        uploadedAt: new Date().toISOString(),
+      if (activeTab === 'pickleball') {
+        const newImg = await uploadPickleballImage(uploadFile, uploadName.trim(), uploadDesc.trim())
+        setPickleballImages((prev) => [newImg, ...prev])
+      } else {
+        const newImage: ManagedImage = {
+          id: crypto.randomUUID(),
+          name: uploadName.trim(),
+          description: uploadDesc.trim(),
+          category: activeTab,
+          displayStatus: 'active',
+          fileUrl: uploadPreview,
+          uploadedAt: new Date().toISOString(),
+        }
+        persist([...images, newImage])
       }
-      persist([...images, newImage])
       toast.success('Image uploaded successfully.')
       // reset
       setUploadOpen(false)
@@ -145,20 +188,35 @@ export default function AdminImageManagementPage() {
     setEditDesc(img.description)
   }
 
-  const handleEditSave = () => {
+  const handleEditSave = async () => {
     if (!editImage) return
     if (!editName.trim()) {
       toast.error('Image name is required.')
       return
     }
-    const next = images.map((img) =>
-      img.id === editImage.id
-        ? { ...img, name: editName.trim(), description: editDesc.trim() }
-        : img,
-    )
-    persist(next as ManagedImage[])
-    toast.success('Image details updated.')
-    setEditImage(null)
+    const isPickleball = pickleballImages.some((img) => img.id === editImage.id)
+    try {
+      if (isPickleball) {
+        const updated = await updatePickleballImage(editImage.id, {
+          name: editName.trim(),
+          description: editDesc.trim(),
+        })
+        setPickleballImages((prev) =>
+          prev.map((img) => (img.id === updated.id ? updated : img)),
+        )
+      } else {
+        const next = images.map((img) =>
+          img.id === editImage.id
+            ? { ...img, name: editName.trim(), description: editDesc.trim() }
+            : img,
+        )
+        persist(next as ManagedImage[])
+      }
+      toast.success('Image details updated.')
+      setEditImage(null)
+    } catch {
+      toast.error('Update failed. Please try again.')
+    }
   }
 
   // ---- Replace flow ----
@@ -173,6 +231,7 @@ export default function AdminImageManagementPage() {
       toast.error(err)
       return
     }
+    setReplaceFile(file)
     readFileAsDataUrl(file)
       .then((url) => setReplacePreview(url))
       .catch(() => toast.error('Could not read file.'))
@@ -185,13 +244,29 @@ export default function AdminImageManagementPage() {
     }
     setReplacing(true)
     try {
-      const next = images.map((img) =>
-        img.id === replaceImage.id ? { ...img, fileUrl: replacePreview } : img,
-      )
-      persist(next as ManagedImage[])
-      toast.success('Image replaced successfully.')
-      setReplaceImage(null)
-      setReplacePreview(null)
+      const isPickleball = pickleballImages.some((img) => img.id === replaceImage.id)
+      if (isPickleball) {
+        if (!replaceFile) {
+          toast.error('Please select a new image.')
+          return
+        }
+        const updated = await replacePickleballImage(replaceImage.id, replaceFile)
+        setPickleballImages((prev) =>
+          prev.map((img) => (img.id === updated.id ? updated : img)),
+        )
+        toast.success('Image replaced successfully.')
+        setReplaceImage(null)
+        setReplaceFile(null)
+        setReplacePreview(null)
+      } else {
+        const next = images.map((img) =>
+          img.id === replaceImage.id ? { ...img, fileUrl: replacePreview } : img,
+        )
+        persist(next as ManagedImage[])
+        toast.success('Image replaced successfully.')
+        setReplaceImage(null)
+        setReplacePreview(null)
+      }
     } catch {
       toast.error('Replace failed. Please try again.')
     } finally {
@@ -200,25 +275,49 @@ export default function AdminImageManagementPage() {
   }
 
   // ---- Toggle status ----
-  const toggleStatus = (img: ManagedImage) => {
-    const next = images.map((i) =>
-      i.id === img.id
-        ? { ...i, displayStatus: i.displayStatus === 'active' ? 'inactive' : 'active' }
-        : i,
-    )
-    persist(next as ManagedImage[])
-    toast.success(
-      img.displayStatus === 'active' ? 'Image deactivated.' : 'Image activated.',
-    )
+  const toggleStatus = async (img: ManagedImage) => {
+    const isPickleball = pickleballImages.some((i) => i.id === img.id)
+    try {
+      if (isPickleball) {
+        const newStatus = img.displayStatus === 'active' ? 'inactive' : 'active'
+        const updated = await togglePickleballImageStatus(img.id, newStatus)
+        setPickleballImages((prev) =>
+          prev.map((i) => (i.id === updated.id ? updated : i)),
+        )
+      } else {
+        const next = images.map((i) =>
+          i.id === img.id
+            ? { ...i, displayStatus: i.displayStatus === 'active' ? 'inactive' : 'active' }
+            : i,
+        )
+        persist(next as ManagedImage[])
+      }
+      toast.success(
+        img.displayStatus === 'active' ? 'Image deactivated.' : 'Image activated.',
+      )
+    } catch {
+      toast.error('Failed to update status.')
+    }
   }
 
   // ---- Delete flow ----
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleteImage) return
-    const next = images.filter((i) => i.id !== deleteImage.id)
-    persist(next as ManagedImage[])
-    toast.success('Image deleted.')
-    setDeleteImage(null)
+    const isPickleball = pickleballImages.some((i) => i.id === deleteImage.id)
+    try {
+      if (isPickleball) {
+        const img = pickleballImages.find((i) => i.id === deleteImage.id)
+        await deletePickleballImage(deleteImage.id, img?.storagePath ?? '')
+        setPickleballImages((prev) => prev.filter((i) => i.id !== deleteImage.id))
+      } else {
+        const next = images.filter((i) => i.id !== deleteImage.id)
+        persist(next as ManagedImage[])
+      }
+      toast.success('Image deleted.')
+      setDeleteImage(null)
+    } catch {
+      toast.error('Delete failed. Please try again.')
+    }
   }
 
   return (
@@ -246,7 +345,13 @@ export default function AdminImageManagementPage() {
 
         {CATEGORIES.map((c) => (
           <TabsContent key={c.key} value={c.key} className="mt-6">
-            {tabImages.length === 0 ? (
+            {pickleballLoading && activeTab === 'pickleball' ? (
+              <Card>
+                <CardContent className="flex items-center justify-center py-16">
+                  <span className="text-sm text-muted-foreground">Loading images…</span>
+                </CardContent>
+              </Card>
+            ) : tabImages.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
                   <span className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">

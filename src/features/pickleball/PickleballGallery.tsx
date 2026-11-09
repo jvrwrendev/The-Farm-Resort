@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { ChevronLeft, ChevronRight, ImageIcon, X } from 'lucide-react'
-import { PICKLEBALL_GALLERY } from './mockData'
-import { getActiveImages } from '@/features/admin/imageStorage'
+import { listActivePickleballImages } from '@/services/pickleballImage.service'
+import type { PickleballImage } from '@/services/pickleballImage.service'
 import { cn } from '@/lib/utils'
 
 type TileSize = 'cover' | 'tall' | 'wide' | 'square'
@@ -26,16 +26,21 @@ function tileSizeFor(index: number, total: number): TileSize {
 
 export function PickleballGallery() {
   const [lightbox, setLightbox] = useState<number | null>(null)
-  const gallery = [
-    ...PICKLEBALL_GALLERY,
-    ...getActiveImages('pickleball').map((img) => ({
-      id: img.id,
-      src: img.fileUrl,
-      alt: img.description || img.name,
-      title: img.name,
-      category: 'Managed',
-    })),
-  ]
+  const [images, setImages] = useState<PickleballImage[]>([])
+  const [loading, setLoading] = useState(true)
+  useEffect(() => {
+    listActivePickleballImages()
+      .then(setImages)
+      .catch(() => setImages([]))
+      .finally(() => setLoading(false))
+  }, [])
+  const gallery = images.map((img) => ({
+    id: img.id,
+    src: img.url,
+    alt: img.description || img.name,
+    title: img.name,
+    category: 'Managed',
+  }))
 
   useEffect(() => {
     if (lightbox === null) return
@@ -88,6 +93,13 @@ export function PickleballGallery() {
           </p>
         </motion.div>
 
+        {loading ? (
+          <div className="py-16 text-center text-sm text-muted-foreground">Loading gallery…</div>
+        ) : gallery.length === 0 ? (
+          <div className="rounded-2xl border border-dashed bg-card p-10 text-center text-sm text-muted-foreground">
+            No pickleball images uploaded yet.
+          </div>
+        ) : (
         <div className="grid auto-rows-[180px] grid-cols-2 gap-3 md:auto-rows-[200px] md:grid-cols-3 lg:auto-rows-[220px] lg:grid-cols-4">
           {gallery.map((item, index) => (
             <motion.button
@@ -126,6 +138,7 @@ export function PickleballGallery() {
             </motion.button>
           ))}
         </div>
+        )}
       </div>
 
       <AnimatePresence>

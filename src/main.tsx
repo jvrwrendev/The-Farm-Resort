@@ -15,6 +15,7 @@ import PickleballBookingPage from '@/features/pickleball/PickleballBookingPage'
 import PickleballConfirmationPage from '@/features/pickleball/PickleballConfirmationPage'
 import AdminPickleballPage from '@/features/pickleball/admin/AdminPickleballPage'
 import AdminPickleballDetailsPage from '@/features/pickleball/admin/AdminPickleballDetailsPage'
+import AdminPickleballCourtsPage from '@/features/admin/AdminPickleballCourtsPage'
 import AdminLoginPage from '@/features/admin/AdminLoginPage'
 import AdminDashboardPage from '@/features/admin/AdminDashboardPage'
 import AdminBookingsPage from '@/features/admin/AdminBookingsPage'
@@ -133,6 +134,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <AdminRoute title="Pickleball Booking Details">
                     <AdminPickleballDetailsPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/pickleball-courts"
+                element={
+                  <AdminRoute title="Pickleball Courts">
+                    <AdminPickleballCourtsPage />
                   </AdminRoute>
                 }
               />

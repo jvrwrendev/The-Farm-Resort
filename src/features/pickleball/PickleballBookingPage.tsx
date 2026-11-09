@@ -31,9 +31,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { DatePickerField } from '@/features/booking/DatePickerField'
 import { PickleballAvailability } from './PickleballAvailability'
 import { PickleballBookingSummary } from './PickleballBookingSummary'
-import { PICKLEBALL_COURTS, PICKLEBALL_SETTINGS } from './mockData'
+import { PICKLEBALL_SETTINGS } from './mockData'
 import { pickleballBookingSchema, type PickleballBookingFormValues } from './schema'
 import { createPickleballBooking, getPickleballAvailability, isPickleballRangeAvailable } from './service'
+import { listPickleballCourts } from '@/services/pickleballCourt.service'
 import type { PickleballTimeSlot } from './types'
 import { usePickleballStorageSync } from './usePickleballStorageSync'
 import { queryKeys } from '@/lib/queryKeys'
@@ -43,7 +44,6 @@ import {
   formatTimeLabel,
   formatTimeRange,
   getAvailableEndTimes,
-  getCourt,
   getDurationHours,
 } from './utils'
 
@@ -53,14 +53,16 @@ const defaultBookingDate = format(addDays(today, 1), 'yyyy-MM-dd')
 const EMPTY_SLOTS: PickleballTimeSlot[] = []
 
 export default function PickleballBookingPage() {
+  const { data: courts = [] } = useQuery({ queryKey: ['pickleball-courts'], queryFn: listPickleballCourts })
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
   const requestedCourtId = searchParams.get('court')
   const initialCourtId =
-    PICKLEBALL_COURTS.find((court) => court.id === requestedCourtId)?.id ??
-    PICKLEBALL_COURTS[1]?.id ??
-    PICKLEBALL_COURTS[0].id
+    courts.find((court) => court.id === requestedCourtId)?.id ??
+    courts[1]?.id ??
+    courts[0]?.id ??
+    ''
 
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewValues, setReviewValues] = useState<PickleballBookingFormValues | null>(null)
@@ -95,7 +97,7 @@ export default function PickleballBookingPage() {
   const endTime = watch('endTime')
   const players = Number(watch('players')) || 0
 
-  const court = getCourt(courtId)
+  const court = courts.find((c) => c.id === courtId)
   const durationHours = getDurationHours(startTime, endTime)
   const total = (court?.hourlyRate ?? 0) * durationHours
 
@@ -173,7 +175,7 @@ export default function PickleballBookingPage() {
   }
 
   const handleReview = (values: PickleballBookingFormValues) => {
-    const selectedCourt = getCourt(values.courtId)
+    const selectedCourt = courts.find((c) => c.id === values.courtId)
     if (!selectedCourt) {
       toast.error('Please select a valid court.')
       return
@@ -201,7 +203,7 @@ export default function PickleballBookingPage() {
     mutation.mutate(reviewValues)
   }
 
-  const reviewCourt = reviewValues ? getCourt(reviewValues.courtId) : undefined
+  const reviewCourt = reviewValues ? courts.find((c) => c.id === reviewValues.courtId) : undefined
   const reviewDuration = reviewValues
     ? getDurationHours(reviewValues.startTime, reviewValues.endTime)
     : 0
@@ -244,7 +246,7 @@ export default function PickleballBookingPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                    {PICKLEBALL_COURTS.map((option) => {
+                    {courts.map((option) => {
                       const selected = option.id === courtId
                       return (
                         <button

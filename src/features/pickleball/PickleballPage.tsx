@@ -26,12 +26,13 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { PickleballGallery } from './PickleballGallery'
 import {
-  PICKLEBALL_COURTS,
   PICKLEBALL_FACILITIES,
-  PICKLEBALL_GALLERY,
   PICKLEBALL_SETTINGS,
 } from './mockData'
 import { formatCurrency } from '@/lib/utils'
+import picklebg from '@/assets/picklebg.jpeg'
+import { listPickleballCourts } from '@/services/pickleballCourt.service'
+import { useQuery } from '@tanstack/react-query'
 import { formatTimeLabel } from './utils'
 
 const FACILITY_ICONS: Record<string, ComponentType<{ className?: string }>> = {
@@ -54,14 +55,18 @@ const PLAYING_NOTES = [
 ]
 
 export default function PickleballPage() {
-  const lowestRate = Math.min(...PICKLEBALL_COURTS.map((court) => court.hourlyRate))
+  const { data: courts = [] } = useQuery({
+    queryKey: ['pickleball-courts'],
+    queryFn: listPickleballCourts,
+  })
+  const lowestRate = courts.length ? Math.min(...courts.map((court) => court.hourlyRate)) : 0
 
   return (
     <PublicLayout>
       <section
         className="relative isolate w-full overflow-hidden scroll-mt-24"
         style={{
-          backgroundImage: `url(${PICKLEBALL_GALLERY[0].src})`,
+          backgroundImage: `url(${picklebg})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center center',
           backgroundRepeat: 'no-repeat',
@@ -208,7 +213,7 @@ export default function PickleballPage() {
           </motion.div>
 
           <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {PICKLEBALL_COURTS.map((court, index) => (
+            {courts.map((court, index) => (
               <motion.div
                 key={court.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -218,12 +223,18 @@ export default function PickleballPage() {
               >
                 <Card className="flex h-full flex-col overflow-hidden">
                   <div className="relative aspect-[16/10] overflow-hidden bg-muted">
-                    <img
-                      src={court.imageUrl}
-                      alt={`${court.name} at The Farm`}
-                      className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
-                      loading="lazy"
-                    />
+                    {court.imageUrl ? (
+                      <img
+                        src={court.imageUrl}
+                        alt={`${court.name} at The Farm`}
+                        className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground">
+                        <span className="text-sm">No image</span>
+                      </div>
+                    )}
                     <Badge className="absolute left-3 top-3" variant={court.isCovered ? 'success' : 'secondary'}>
                       {court.isCovered ? 'Covered' : 'Outdoor'}
                     </Badge>
@@ -370,7 +381,7 @@ export default function PickleballPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {PICKLEBALL_COURTS.map((court) => (
+                {courts.map((court) => (
                   <div
                     key={court.id}
                     className="flex items-center justify-between gap-4 rounded-xl border bg-muted/30 px-4 py-3"

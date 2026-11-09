@@ -3,7 +3,8 @@ import { motion } from 'framer-motion'
 import { ArrowRight, CalendarCheck2, Clock, Trophy, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { PICKLEBALL_COURTS, PICKLEBALL_GALLERY, PICKLEBALL_SETTINGS } from './mockData'
+import picklebg from '@/assets/picklebg.jpeg'
+import { PICKLEBALL_COURTS, PICKLEBALL_SETTINGS } from './mockData'
 import { formatCurrency } from '@/lib/utils'
 import { formatTimeLabel } from './utils'
 
@@ -21,7 +22,7 @@ export function PickleballTeaserSection() {
           className="relative overflow-hidden rounded-2xl"
         >
           <img
-            src={PICKLEBALL_GALLERY[0].src}
+            src={picklebg}
             alt="Pickleball court at The Farm"
             className="aspect-[4/3] w-full object-cover"
             loading="lazy"
