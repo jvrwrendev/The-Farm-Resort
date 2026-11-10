@@ -32,6 +32,12 @@ const FRIENDLY_RPC_MESSAGES: Record<string, string> = {
     'The participant count exceeds capacity for the selected quantity.',
   ACTIVITY_INSUFFICIENT_INVENTORY:
     'Not enough units are available for that time slot. Please choose another time or quantity.',
+  ACTIVITY_UNIT_NOT_FOUND: 'The selected unit or table could not be found.',
+  ACTIVITY_UNIT_MISMATCH: 'The selected unit does not match this activity.',
+  ACTIVITY_UNIT_UNAVAILABLE:
+    'The selected unit or table is not available. Please choose another one.',
+  ACTIVITY_UNIT_CONFLICT:
+    'That unit or table is already booked for the selected time. Please choose another option.',
 }
 
 export function mapSupabaseError(error: unknown): string {

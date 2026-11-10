@@ -128,9 +128,13 @@ export default function ActivityConfirmationPage() {
                     <Users className="mt-0.5 h-4 w-4 text-primary" />
                     <div>
                       <p className="text-xs uppercase tracking-wider text-muted-foreground">
-                        {booking.activityType === 'atv' ? 'ATVs' : 'Tables'}
+                        {booking.activityType === 'atv' ? 'ATV' : 'Table'}
                       </p>
-                      <p className="text-sm font-medium">{booking.quantity}</p>
+                      <p className="text-sm font-medium">
+                        {booking.unitName && booking.unitName !== '—'
+                          ? booking.unitName
+                          : `${booking.quantity} ${booking.activityType === 'atv' ? 'ATV' : 'table'}${booking.quantity === 1 ? '' : 's'}`}
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -176,9 +180,8 @@ export default function ActivityConfirmationPage() {
                     <p className="text-sm text-muted-foreground">Estimated total</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
                       {formatCurrency(booking.hourlyRate)} × {booking.durationHours} hour
-                      {booking.durationHours === 1 ? '' : 's'} × {booking.quantity}{' '}
-                      {booking.activityType === 'atv' ? 'ATV' : 'table'}
-                      {booking.quantity === 1 ? '' : 's'}
+                      {booking.durationHours === 1 ? '' : 's'}
+                      {booking.unitId ? ` · ${booking.unitName}` : ` × ${booking.quantity}`}
                     </p>
                   </div>
                   <p className="font-display text-3xl font-bold text-primary">

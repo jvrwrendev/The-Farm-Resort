@@ -2,6 +2,8 @@ export type ActivityType = 'billiards' | 'atv'
 
 export type ActivityBookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
 
+export type ActivityUnitStatus = 'available' | 'maintenance'
+
 export interface Activity {
   id: string
   type: ActivityType
@@ -19,6 +21,22 @@ export interface Activity {
   closeTime: string
 }
 
+export interface ActivityUnit {
+  id: string
+  activityType: ActivityType
+  name: string
+  identifier: string
+  description: string
+  imageUrl: string
+  hourlyRate: number
+  weekdayRate: number
+  weekendRate: number
+  maxPlayers: number
+  status: ActivityUnitStatus
+  isActive: boolean
+  sortOrder: number
+}
+
 export interface ActivityBooking {
   id: string
   reference: string
@@ -28,6 +46,8 @@ export interface ActivityBooking {
   activityId: string
   activityType: ActivityType
   activityName: string
+  unitId: string | null
+  unitName: string
   bookingDate: string
   startTime: string
   endTime: string
@@ -44,6 +64,7 @@ export interface ActivityBooking {
 
 export interface ActivityBookingInput {
   activityId: string
+  unitId?: string
   customerName: string
   email: string
   contactNumber: string
@@ -70,6 +91,21 @@ export interface ActivityInput {
   isActive: boolean
   openTime: string
   closeTime: string
+}
+
+export interface ActivityUnitInput {
+  activityType: ActivityType
+  name: string
+  identifier?: string
+  description?: string
+  imageUrl?: string
+  hourlyRate: number
+  weekdayRate: number
+  weekendRate: number
+  maxPlayers: number
+  status: ActivityUnitStatus
+  isActive: boolean
+  sortOrder?: number
 }
 
 export interface ActivityStats {

@@ -9,10 +9,9 @@ import {
   ArrowLeft,
   CalendarDays,
   Check,
-  Clock,
   Gauge,
+  Image as ImageIcon,
   ShieldCheck,
-  Users,
 } from 'lucide-react'
 import { PublicLayout } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/button'
@@ -29,31 +28,55 @@ import {
 } from '@/components/ui/select'
 import { DatePickerField } from '@/features/booking/DatePickerField'
 import {
-  listActivities,
   createActivityBooking,
-  getPeakActivityInventory,
-  isActivityRangeAvailable,
-  listBookingsForActivityDate,
+  isUnitRangeAvailable,
+  listActivities,
+  listActivityBookings,
+  listActivityUnits,
 } from '@/services/activity.service'
-import type { ActivityType } from './types'
+import type { ActivityType, ActivityUnit } from './types'
 import { activityBookingSchema, type ActivityBookingFormValues } from './schema'
 import {
   formatBookingDate,
   formatTimeLabel,
-  getActivityRate,
-  getEndTime,
   generateTimeOptions,
+  getEndTime,
+  isWeekendDate,
   timeToMinutes,
 } from './utils'
-import { formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 
 const today = startOfDay(new Date())
 const latestDate = addDays(today, 60)
 const defaultBookingDate = format(addDays(today, 1), 'yyyy-MM-dd')
 
-const TYPE_LABELS: Record<ActivityType, { title: string; noun: string; icon: typeof Gauge }> = {
-  billiards: { title: 'Billiards', noun: 'table', icon: CalendarDays },
-  atv: { title: 'ATV Rental', noun: 'ATV', icon: Gauge },
+const TYPE_LABELS: Record<
+  ActivityType,
+  { title: string; noun: string; unit: string; icon: typeof Gauge }
+> = {
+  billiards: { title: 'Billiards', noun: 'table', unit: 'table', icon: CalendarDays },
+  atv: { title: 'ATV Rental', noun: 'ATV', unit: 'ATV', icon: Gauge },
+}
+
+function getUnitRate(unit: ActivityUnit | undefined, date: string): number {
+  if (!unit) return 0
+  return isWeekendDate(date) ? unit.weekendRate : unit.weekdayRate
+}
+
+function unitAvailableForSlot(
+  unit: ActivityUnit,
+  bookings: Array<{ unitId: string | null; startTime: string; endTime: string }>,
+  startTime: string,
+  endTime: string,
+): boolean {
+  if (unit.status !== 'available' || !unit.isActive) return false
+  if (!startTime || !endTime) return true
+  return !bookings.some(
+    (booking) =>
+      booking.unitId === unit.id &&
+      startTime < booking.endTime &&
+      endTime > booking.startTime,
+  )
 }
 
 export default function ActivityBookingPage({
@@ -73,8 +96,13 @@ export default function ActivityBookingPage({
     queryKey: ['activities', activityType],
     queryFn: () => listActivities(activityType),
   })
-
   const activity = activities[0]
+
+  const { data: units = [], isLoading: unitsLoading } = useQuery({
+    queryKey: ['activity-units', activityType],
+    queryFn: () => listActivityUnits(activityType),
+    enabled: Boolean(activity),
+  })
 
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewValues, setReviewValues] = useState<ActivityBookingFormValues | null>(null)
@@ -92,6 +120,7 @@ export default function ActivityBookingPage({
       email: '',
       contactNumber: '',
       activityId: '',
+      unitId: '',
       bookingDate: defaultBookingDate,
       startTime: '',
       durationHours: 1,
@@ -103,8 +132,8 @@ export default function ActivityBookingPage({
 
   const bookingDate = watch('bookingDate')
   const startTime = watch('startTime')
+  const unitId = watch('unitId')
   const durationHours = Number(watch('durationHours')) || 1
-  const quantity = Number(watch('quantity')) || 1
   const players = Number(watch('players')) || 0
 
   useEffect(() => {
@@ -135,42 +164,40 @@ export default function ActivityBookingPage({
   }, [durationHours, maxDuration, setValue])
 
   const endTime = startTime ? getEndTime(startTime, durationHours) : ''
-  const rate = getActivityRate(activity, bookingDate)
 
-  const availabilityQuery = useQuery({
-    queryKey: ['activity-availability', activity?.id, bookingDate],
-    queryFn: async () => {
-      if (!activity) return []
-      return listBookingsForActivityDate(activity.id, bookingDate)
-    },
+  const { data: dayBookings = [], isFetching: availabilityFetching } = useQuery({
+    queryKey: ['activity-day-bookings', activityType, bookingDate],
+    queryFn: () => listActivityBookings(activityType),
+    select: (bookings) =>
+      bookings.filter(
+        (booking) =>
+          booking.bookingDate === bookingDate &&
+          ['pending', 'confirmed', 'completed'].includes(booking.status),
+      ),
     enabled: Boolean(activity && bookingDate),
   })
 
-  const availableInventory = useMemo(() => {
-    if (!activity) return 0
-    if (!startTime || !endTime) return activity.inventoryCount
-    const occupied = getPeakActivityInventory(
-      availabilityQuery.data ?? [],
-      startTime,
-      endTime,
-    )
-    return Math.max(0, activity.inventoryCount - occupied)
-  }, [activity, availabilityQuery.data, endTime, startTime])
+  useEffect(() => {
+    setValue('unitId', '', { shouldValidate: true })
+  }, [bookingDate, startTime, durationHours, setValue])
+
+  const selectedUnit = units.find((unit) => unit.id === unitId)
+  const rate = getUnitRate(selectedUnit, bookingDate)
+  const total = rate * durationHours
+  const participantCapacity = selectedUnit?.maxPlayers ?? activity?.maxPlayers ?? 1
 
   useEffect(() => {
-    if (availableInventory > 0 && quantity > availableInventory) {
-      setValue('quantity', availableInventory, { shouldValidate: true })
+    if (selectedUnit && players > selectedUnit.maxPlayers) {
+      setValue('players', selectedUnit.maxPlayers, { shouldValidate: true })
     }
-  }, [availableInventory, quantity, setValue])
-
-  const participantCapacity = activity ? activity.maxPlayers * quantity : 0
-  const total = rate * durationHours * quantity
+  }, [players, selectedUnit, setValue])
 
   const mutation = useMutation({
     mutationFn: async (values: ActivityBookingFormValues) => {
       if (!activity) throw new Error('Activity not available.')
       return createActivityBooking({
         activityId: activity.id,
+        unitId: values.unitId,
         customerName: values.customerName,
         email: values.email,
         contactNumber: values.contactNumber,
@@ -178,13 +205,14 @@ export default function ActivityBookingPage({
         startTime: values.startTime,
         endTime: getEndTime(values.startTime, values.durationHours),
         durationHours: values.durationHours,
-        quantity: Number(values.quantity),
+        quantity: 1,
         players: Number(values.players),
         notes: values.notes ?? '',
       })
     },
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-day-bookings'] })
       toast.success(`Booking received · ${booking.reference}`)
       navigate(`/${activityType}/confirmation/${booking.reference}`)
     },
@@ -198,30 +226,32 @@ export default function ActivityBookingPage({
       toast.error('This activity is not available right now.')
       return
     }
+    const unit = units.find((item) => item.id === values.unitId)
+    if (!unit) {
+      toast.error(`Please select a ${meta.unit}.`)
+      return
+    }
+    if (unit.status === 'maintenance') {
+      toast.error(`This ${meta.unit} is currently under maintenance.`)
+      return
+    }
     const end = getEndTime(values.startTime, values.durationHours)
     if (end > activity.closeTime) {
       toast.error('Please choose a shorter duration or an earlier start time.')
       return
     }
-    if (values.quantity > activity.inventoryCount) {
-      toast.error(`You can reserve up to ${activity.inventoryCount} at a time.`)
+    if (values.players > unit.maxPlayers) {
+      toast.error(`This ${meta.unit} hosts up to ${unit.maxPlayers} participants.`)
       return
     }
-    const capacity = activity.maxPlayers * values.quantity
-    if (values.players > capacity) {
-      toast.error(`The selected quantity hosts up to ${capacity} participants.`)
-      return
-    }
-    const available = await isActivityRangeAvailable(
-      activity.id,
+    const available = await isUnitRangeAvailable(
+      unit.id,
       values.bookingDate,
       values.startTime,
       end,
-      values.quantity,
     )
     if (!available) {
-      toast.error('Not enough units are available for that time slot.')
-      availabilityQuery.refetch()
+      toast.error(`That ${meta.unit} is already booked for the selected time.`)
       return
     }
     setReviewValues(values)
@@ -249,8 +279,8 @@ export default function ActivityBookingPage({
             {meta.title} booking is not open yet
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Our team is still setting up online booking for this activity. Please contact the front
-            desk to reserve.
+            Our team is still setting up online booking for this activity. Please contact the
+            front desk to reserve.
           </p>
           <Button asChild variant="outline" className="mt-6">
             <Link to="/">Back to home</Link>
@@ -259,6 +289,10 @@ export default function ActivityBookingPage({
       </PublicLayout>
     )
   }
+
+  const reviewUnit = reviewValues ? units.find((u) => u.id === reviewValues.unitId) : undefined
+  const reviewRate = getUnitRate(reviewUnit, reviewValues?.bookingDate ?? bookingDate)
+  const reviewTotal = reviewRate * (reviewValues?.durationHours ?? 0)
 
   return (
     <PublicLayout>
@@ -276,11 +310,11 @@ export default function ActivityBookingPage({
               Reserve {meta.title}
             </span>
             <h1 className="font-display mt-4 text-3xl font-bold sm:text-4xl lg:text-5xl">
-              Book your {meta.noun} session
+              Choose your {meta.noun}
             </h1>
             <p className="mt-4 text-muted-foreground">
-              Choose a date and time, tell us who’s coming, and we’ll prepare everything for your
-              visit. No online payment is required.
+              Select your preferred {meta.unit}, pick a time, and we’ll prepare it for your visit.
+              No online payment is required.
             </p>
           </div>
         </div>
@@ -290,40 +324,12 @@ export default function ActivityBookingPage({
             <div className="space-y-6 lg:col-span-2">
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-display text-xl">{activity.name}</CardTitle>
-                  <p className="text-sm text-muted-foreground">{activity.description}</p>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
-                      <Clock className="h-3 w-3 text-primary" />
-                      {formatTimeLabel(activity.openTime)} – {formatTimeLabel(activity.closeTime)}
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
-                      <Users className="h-3 w-3 text-primary" />
-                      {activity.inventoryCount}{' '}
-                      {activityType === 'atv'
-                        ? `ATV${activity.inventoryCount === 1 ? '' : 's'}`
-                        : `table${activity.inventoryCount === 1 ? '' : 's'}`}{' '}
-                      · up to {activity.maxPlayers} guests each
-                    </span>
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1">
-                      <Check className="h-3 w-3 text-primary" />
-                      Weekday {formatCurrency(activity.weekdayRate)} / hour · Weekend{' '}
-                      {formatCurrency(activity.weekendRate)} / hour
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader>
                   <CardTitle className="flex items-center gap-2 font-display text-xl">
                     <CalendarDays className="h-5 w-5 text-primary" />
                     Pick a date and time
                   </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    Availability updates automatically based on confirmed reservations.
+                    Select a time first, then choose an available {meta.unit}.
                   </p>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -343,7 +349,7 @@ export default function ActivityBookingPage({
                     )}
                   </div>
 
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label>Start time</Label>
                       <Select
@@ -394,53 +400,20 @@ export default function ActivityBookingPage({
                         <p className="text-sm text-destructive">{errors.durationHours.message}</p>
                       )}
                     </div>
-
-                    <div className="space-y-2">
-                      <Label>{activityType === 'atv' ? 'ATVs' : 'Tables'}</Label>
-                      <Select
-                        value={String(quantity)}
-                        onValueChange={(value) =>
-                          setValue('quantity', Number(value), {
-                            shouldValidate: true,
-                            shouldDirty: true,
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select quantity" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from(
-                            { length: Math.max(availableInventory, 1) },
-                            (_, index) => index + 1,
-                          ).map((option) => (
-                            <SelectItem
-                              key={option}
-                              value={String(option)}
-                              disabled={option > availableInventory}
-                            >
-                              {option}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {errors.quantity?.message && (
-                        <p className="text-sm text-destructive">{errors.quantity.message}</p>
-                      )}
-                    </div>
                   </div>
 
                   {startTime && endTime && (
                     <div className="flex items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-sm text-primary">
                       <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
                       <span>
-                        {availabilityQuery.isFetching
+                        {availabilityFetching
                           ? 'Checking availability…'
-                          : `${availableInventory} of ${activity.inventoryCount} ${
-                              activityType === 'atv' ? 'ATVs' : 'tables'
-                            } available from ${formatTimeLabel(startTime)} – ${formatTimeLabel(
-                              endTime,
-                            )} on ${formatBookingDate(bookingDate, 'MMM d, yyyy')}.`}
+                          : `Showing ${meta.unit} availability for ${formatTimeLabel(
+                              startTime,
+                            )} – ${formatTimeLabel(endTime)} on ${formatBookingDate(
+                              bookingDate,
+                              'MMM d, yyyy',
+                            )}.`}
                       </span>
                     </div>
                   )}
@@ -449,10 +422,121 @@ export default function ActivityBookingPage({
 
               <Card>
                 <CardHeader>
-                  <CardTitle className="font-display text-xl">Your details</CardTitle>
+                  <CardTitle className="font-display text-xl">
+                    Select your {meta.unit}
+                  </CardTitle>
                   <p className="text-sm text-muted-foreground">
-                    We’ll use these details to prepare your booking.
+                    Each {meta.unit} has its own schedule. Booked or maintenance units can’t be
+                    selected for the chosen time.
                   </p>
+                </CardHeader>
+                <CardContent>
+                  {unitsLoading ? (
+                    <p className="text-sm text-muted-foreground">Loading {meta.unit}s…</p>
+                  ) : units.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No {meta.unit}s are available yet. Please contact the front desk.
+                    </p>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {units.map((unit) => {
+                        const slotAvailable = unitAvailableForSlot(
+                          unit,
+                          dayBookings,
+                          startTime,
+                          endTime,
+                        )
+                        const isSelected = unit.id === unitId
+                        const statusLabel =
+                          unit.status === 'maintenance'
+                            ? 'Maintenance'
+                            : startTime && endTime && !slotAvailable
+                              ? 'Reserved'
+                              : 'Available'
+                        const selectable = slotAvailable && Boolean(startTime && endTime)
+
+                        return (
+                          <button
+                            key={unit.id}
+                            type="button"
+                            disabled={!selectable}
+                            onClick={() => {
+                              if (!selectable) return
+                              setValue('unitId', unit.id, {
+                                shouldValidate: true,
+                                shouldDirty: true,
+                              })
+                            }}
+                            className={cn(
+                              'group overflow-hidden rounded-xl border text-left transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                              isSelected &&
+                                'border-primary bg-primary/5 shadow-sm ring-1 ring-primary/20',
+                              !isSelected &&
+                                selectable &&
+                                'border-border bg-card hover:border-primary/40 hover:shadow-sm',
+                              !selectable && 'cursor-not-allowed border-border/60 opacity-70',
+                            )}
+                          >
+                            <div className="relative aspect-[16/9] overflow-hidden bg-muted">
+                              {unit.imageUrl ? (
+                                <img
+                                  src={unit.imageUrl}
+                                  alt={unit.name}
+                                  className="h-full w-full object-cover"
+                                  loading="lazy"
+                                />
+                              ) : (
+                                <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                                  <ImageIcon className="h-7 w-7" />
+                                </div>
+                              )}
+                              <span
+                                className={cn(
+                                  'absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide',
+                                  statusLabel === 'Available' && 'bg-emerald-500/90 text-white',
+                                  statusLabel === 'Reserved' && 'bg-amber-500/90 text-white',
+                                  statusLabel === 'Maintenance' && 'bg-slate-700/90 text-white',
+                                )}
+                              >
+                                {statusLabel}
+                              </span>
+                              {isSelected && (
+                                <span className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-sm">
+                                  <Check className="h-3.5 w-3.5" />
+                                </span>
+                              )}
+                            </div>
+                            <div className="space-y-1 p-3">
+                              <p className="text-sm font-semibold text-foreground">{unit.name}</p>
+                              {unit.description && (
+                                <p className="line-clamp-2 text-xs text-muted-foreground">
+                                  {unit.description}
+                                </p>
+                              )}
+                              <p className="text-xs text-muted-foreground">
+                                {formatCurrency(getUnitRate(unit, bookingDate))} / hour · up to{' '}
+                                {unit.maxPlayers} guests
+                              </p>
+                            </div>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                  {errors.unitId?.message && (
+                    <p className="mt-2 text-sm text-destructive">{errors.unitId.message}</p>
+                  )}
+                  {!startTime && (
+                    <p className="mt-3 text-xs text-muted-foreground">
+                      Choose a date and start time to check which {meta.unit}s are available.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader>
+                  <CardTitle className="font-display text-xl">Your details</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
                   <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
@@ -495,10 +579,9 @@ export default function ActivityBookingPage({
                         {...register('players')}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Up to {participantCapacity} participants for {quantity}{' '}
-                        {activityType === 'atv'
-                          ? `ATV${quantity === 1 ? '' : 's'}`
-                          : `table${quantity === 1 ? '' : 's'}`}.
+                        {selectedUnit
+                          ? `Up to ${selectedUnit.maxPlayers} participants for ${selectedUnit.name}.`
+                          : `Select a ${meta.unit} to see capacity.`}
                       </p>
                     </div>
                     <div className="space-y-2 sm:col-span-2">
@@ -523,8 +606,8 @@ export default function ActivityBookingPage({
                   </CardHeader>
                   <CardContent className="space-y-3 text-sm">
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">Activity</span>
-                      <span className="font-medium">{activity.name}</span>
+                      <span className="text-muted-foreground">{meta.unit}</span>
+                      <span className="font-medium">{selectedUnit?.name ?? '—'}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Date</span>
@@ -547,18 +630,14 @@ export default function ActivityBookingPage({
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground">
-                        {activityType === 'atv' ? 'ATVs' : 'Tables'}
-                      </span>
-                      <span className="font-medium">{quantity}</span>
-                    </div>
-                    <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Participants</span>
                       <span className="font-medium">{players}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span className="text-muted-foreground">Rate</span>
-                      <span className="font-medium">{formatCurrency(rate)} / hour</span>
+                      <span className="font-medium">
+                        {selectedUnit ? `${formatCurrency(rate)} / hour` : '—'}
+                      </span>
                     </div>
                     <div className="border-t pt-3">
                       <div className="flex items-end justify-between">
@@ -567,12 +646,12 @@ export default function ActivityBookingPage({
                           {formatCurrency(total)}
                         </span>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {formatCurrency(rate)} × {durationHours} hour
-                        {durationHours === 1 ? '' : 's'} × {quantity}{' '}
-                        {activityType === 'atv' ? 'ATV' : 'table'}
-                        {quantity === 1 ? '' : 's'}.
-                      </p>
+                      {selectedUnit && (
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatCurrency(rate)} × {durationHours} hour
+                          {durationHours === 1 ? '' : 's'} · {selectedUnit.name}
+                        </p>
+                      )}
                     </div>
                     <Button type="submit" size="lg" className="w-full rounded-full">
                       Review booking
@@ -589,7 +668,7 @@ export default function ActivityBookingPage({
         </form>
       </div>
 
-      {reviewOpen && reviewValues && (
+      {reviewOpen && reviewValues && reviewUnit && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-background p-6 shadow-xl">
             <h2 className="font-display text-xl font-bold">Review your booking</h2>
@@ -602,8 +681,8 @@ export default function ActivityBookingPage({
                 <span className="font-medium">{reviewValues.customerName}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Activity</span>
-                <span className="font-medium">{activity.name}</span>
+                <span className="text-muted-foreground">{meta.unit}</span>
+                <span className="font-medium">{reviewUnit.name}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Date</span>
@@ -619,24 +698,12 @@ export default function ActivityBookingPage({
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">
-                  {activityType === 'atv' ? 'ATVs' : 'Tables'}
-                </span>
-                <span className="font-medium">{reviewValues.quantity}</span>
-              </div>
-              <div className="flex justify-between">
                 <span className="text-muted-foreground">Participants</span>
                 <span className="font-medium">{reviewValues.players}</span>
               </div>
               <div className="flex justify-between border-t pt-2">
                 <span className="text-muted-foreground">Total</span>
-                <span className="font-semibold text-primary">
-                  {formatCurrency(
-                    getActivityRate(activity, reviewValues.bookingDate) *
-                      reviewValues.durationHours *
-                      reviewValues.quantity,
-                  )}
-                </span>
+                <span className="font-semibold text-primary">{formatCurrency(reviewTotal)}</span>
               </div>
             </div>
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">

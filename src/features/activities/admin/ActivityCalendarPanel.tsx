@@ -205,7 +205,7 @@ export function ActivityCalendarPanel({
                       {dayBookings.slice(0, 2).map((booking) => (
                         <span
                           key={booking.id}
-                          title={`${booking.customerName} · ${formatTimeLabel(
+                          title={`${booking.customerName} · ${booking.unitName} · ${formatTimeLabel(
                             booking.startTime,
                           )}–${formatTimeLabel(booking.endTime)}`}
                           className={cn(
@@ -214,7 +214,7 @@ export function ActivityCalendarPanel({
                           )}
                         >
                           <span className="font-semibold">{compactTime(booking.startTime)}</span>
-                          <span className="truncate">{booking.customerName.split(' ')[0]}</span>
+                          <span className="truncate">{booking.unitName}</span>
                         </span>
                       ))}
                       {dayBookings.length > 2 && (
@@ -265,7 +265,9 @@ export function ActivityCalendarPanel({
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium">{booking.customerName}</p>
-                      <p className="text-xs text-muted-foreground">{booking.reference}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {booking.reference} · {booking.unitName}
+                      </p>
                     </div>
                     <StatusBadge status={booking.status} />
                   </div>

@@ -13,6 +13,7 @@ export const activityBookingSchema = z
       .trim()
       .min(7, 'Please enter a valid contact number.')
       .max(20, 'Contact number is too long.'),
+    unitId: z.string().min(1, 'Please select a unit or table.'),
     activityId: z.string().min(1, 'Please select an activity.'),
     bookingDate: z.string().min(1, 'Please select a booking date.'),
     startTime: z.string().min(1, 'Please select a start time.'),
@@ -20,7 +21,8 @@ export const activityBookingSchema = z
     quantity: z.coerce
       .number({ invalid_type_error: 'Please enter a quantity.' })
       .int('Please enter a whole number.')
-      .min(1, 'At least one unit is required.'),
+      .min(1, 'At least one unit is required.')
+      .default(1),
     players: z.coerce
       .number({ invalid_type_error: 'Please enter the number of participants.' })
       .int('Please enter a whole number.')

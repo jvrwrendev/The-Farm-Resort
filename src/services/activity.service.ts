@@ -7,6 +7,9 @@ import type {
   ActivityBookingStatus,
   ActivityInput,
   ActivityType,
+  ActivityUnit,
+  ActivityUnitInput,
+  ActivityUnitStatus,
 } from '@/features/activities/types'
 
 const IMAGE_BUCKET = 'activity-images'
@@ -30,6 +33,24 @@ interface ActivityRow {
   updated_at: string
 }
 
+interface ActivityUnitRow {
+  id: string
+  activity_type: ActivityType
+  name: string
+  identifier: string | null
+  description: string | null
+  image_url: string | null
+  hourly_rate: number
+  weekday_rate: number
+  weekend_rate: number
+  max_players: number
+  status: ActivityUnitStatus
+  is_active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 interface ActivityBookingRow {
   id: string
   reference: string
@@ -37,6 +58,7 @@ interface ActivityBookingRow {
   email: string
   contact_number: string
   activity_id: string
+  unit_id: string | null
   booking_date: string
   start_time: string
   end_time: string
@@ -50,6 +72,7 @@ interface ActivityBookingRow {
   created_at: string
   updated_at: string
   activity: ActivityRow | ActivityRow[] | null
+  unit: ActivityUnitRow | ActivityUnitRow[] | null
 }
 
 function rowToActivity(row: ActivityRow): Activity {
@@ -71,8 +94,27 @@ function rowToActivity(row: ActivityRow): Activity {
   }
 }
 
+function rowToUnit(row: ActivityUnitRow): ActivityUnit {
+  return {
+    id: row.id,
+    activityType: row.activity_type,
+    name: row.name,
+    identifier: row.identifier ?? '',
+    description: row.description ?? '',
+    imageUrl: row.image_url ?? '',
+    hourlyRate: Number(row.hourly_rate),
+    weekdayRate: Number(row.weekday_rate),
+    weekendRate: Number(row.weekend_rate),
+    maxPlayers: row.max_players,
+    status: row.status,
+    isActive: row.is_active,
+    sortOrder: row.sort_order ?? 0,
+  }
+}
+
 function rowToBooking(row: ActivityBookingRow): ActivityBooking {
   const activity = Array.isArray(row.activity) ? row.activity[0] : row.activity
+  const unit = Array.isArray(row.unit) ? row.unit[0] : row.unit
   const activityRate = activity ? Number(activity.weekday_rate) : 0
   const duration = Number(row.duration_hours) || 1
   const quantity = Number(row.quantity) || 1
@@ -85,6 +127,8 @@ function rowToBooking(row: ActivityBookingRow): ActivityBooking {
     activityId: row.activity_id,
     activityType: activity?.type ?? 'billiards',
     activityName: activity?.name ?? 'Activity',
+    unitId: row.unit_id ?? null,
+    unitName: unit?.name ?? (quantity > 1 ? `${quantity} units` : '—'),
     bookingDate: row.booking_date,
     startTime: row.start_time,
     endTime: row.end_time,
@@ -196,10 +240,114 @@ export async function uploadActivityImage(file: File): Promise<string> {
   return data.publicUrl
 }
 
+// ---- Units / tables ----
+
+export async function listActivityUnits(
+  type: ActivityType,
+  options: { includeInactive?: boolean } = {},
+): Promise<ActivityUnit[]> {
+  let query = supabase
+    .from('activity_units')
+    .select('*')
+    .eq('activity_type', type)
+    .order('sort_order', { ascending: true })
+    .order('name', { ascending: true })
+  if (!options.includeInactive) {
+    query = query.eq('is_active', true)
+  }
+  const { data, error } = await query
+  if (error) throw new Error(mapPostgrestError(error))
+  return (data ?? []).map((r) => rowToUnit(r as ActivityUnitRow))
+}
+
+export async function createActivityUnit(input: ActivityUnitInput): Promise<ActivityUnit> {
+  const { data, error } = await supabase
+    .from('activity_units')
+    .insert({
+      activity_type: input.activityType,
+      name: input.name.trim(),
+      identifier: input.identifier?.trim() || null,
+      description: input.description?.trim() || null,
+      image_url: input.imageUrl || null,
+      hourly_rate: input.hourlyRate,
+      weekday_rate: input.weekdayRate,
+      weekend_rate: input.weekendRate,
+      max_players: input.maxPlayers,
+      status: input.status,
+      is_active: input.isActive,
+      sort_order: input.sortOrder ?? 0,
+    })
+    .select('*')
+    .single()
+  if (error) throw new Error(mapPostgrestError(error))
+  return rowToUnit(data as ActivityUnitRow)
+}
+
+export async function updateActivityUnit(
+  id: string,
+  input: Partial<ActivityUnitInput>,
+): Promise<ActivityUnit> {
+  const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (input.activityType !== undefined) patch.activity_type = input.activityType
+  if (input.name !== undefined) patch.name = input.name.trim()
+  if (input.identifier !== undefined) patch.identifier = input.identifier?.trim() || null
+  if (input.description !== undefined) patch.description = input.description?.trim() || null
+  if (input.imageUrl !== undefined) patch.image_url = input.imageUrl || null
+  if (input.hourlyRate !== undefined) patch.hourly_rate = input.hourlyRate
+  if (input.weekdayRate !== undefined) patch.weekday_rate = input.weekdayRate
+  if (input.weekendRate !== undefined) patch.weekend_rate = input.weekendRate
+  if (input.maxPlayers !== undefined) patch.max_players = input.maxPlayers
+  if (input.status !== undefined) patch.status = input.status
+  if (input.isActive !== undefined) patch.is_active = input.isActive
+  if (input.sortOrder !== undefined) patch.sort_order = input.sortOrder
+
+  const { data, error } = await supabase
+    .from('activity_units')
+    .update(patch)
+    .eq('id', id)
+    .select('*')
+    .single()
+  if (error) throw new Error(mapPostgrestError(error))
+  return rowToUnit(data as ActivityUnitRow)
+}
+
+export async function deleteActivityUnit(id: string): Promise<void> {
+  const { error } = await supabase.from('activity_units').delete().eq('id', id)
+  if (error) throw new Error(mapPostgrestError(error))
+}
+
+export async function listUnitBookingsForDate(
+  unitId: string,
+  bookingDate: string,
+): Promise<ActivityBooking[]> {
+  const { data, error } = await supabase
+    .from('activity_bookings')
+    .select('*, activity:activities(*), unit:activity_units(*)')
+    .eq('unit_id', unitId)
+    .eq('booking_date', bookingDate)
+    .in('status', ['pending', 'confirmed', 'completed'])
+  if (error) throw new Error(mapPostgrestError(error))
+  return (data ?? []).map((r) => rowToBooking(r as ActivityBookingRow))
+}
+
+export async function isUnitRangeAvailable(
+  unitId: string,
+  bookingDate: string,
+  startTime: string,
+  endTime: string,
+): Promise<boolean> {
+  const bookings = await listUnitBookingsForDate(unitId, bookingDate)
+  return !bookings.some(
+    (booking) => startTime < booking.endTime && endTime > booking.startTime,
+  )
+}
+
+// ---- Bookings ----
+
 export async function listActivityBookings(type?: ActivityType): Promise<ActivityBooking[]> {
   let query = supabase
     .from('activity_bookings')
-    .select('*, activity:activities(*)')
+    .select('*, activity:activities(*), unit:activity_units(*)')
     .order('booking_date', { ascending: true })
     .order('start_time', { ascending: true })
   if (type) {
@@ -223,7 +371,7 @@ export async function listBookingsForActivityDate(
 ): Promise<ActivityBooking[]> {
   const { data, error } = await supabase
     .from('activity_bookings')
-    .select('*, activity:activities(*)')
+    .select('*, activity:activities(*), unit:activity_units(*)')
     .eq('activity_id', activityId)
     .eq('booking_date', bookingDate)
     .in('status', ['pending', 'confirmed', 'completed'])
@@ -303,39 +451,51 @@ export async function createActivityBooking(
       `Bookings are available from ${activity.openTime} to ${activity.closeTime}.`,
     )
   }
-  if (input.quantity < 1 || input.quantity > activity.inventoryCount) {
-    throw new Error(`You can reserve up to ${activity.inventoryCount} at a time.`)
-  }
-  const participantCapacity = activity.maxPlayers * input.quantity
-  if (input.players < 1 || input.players > participantCapacity) {
-    throw new Error(`The selected quantity hosts up to ${participantCapacity} participants.`)
+
+  if (input.unitId) {
+    const available = await isUnitRangeAvailable(
+      input.unitId,
+      input.bookingDate,
+      input.startTime,
+      input.endTime,
+    )
+    if (!available) {
+      throw new Error('That unit or table is already booked for the selected time.')
+    }
+  } else {
+    if (input.quantity < 1 || input.quantity > activity.inventoryCount) {
+      throw new Error(`You can reserve up to ${activity.inventoryCount} at a time.`)
+    }
+    const participantCapacity = activity.maxPlayers * input.quantity
+    if (input.players < 1 || input.players > participantCapacity) {
+      throw new Error(`The selected quantity hosts up to ${participantCapacity} participants.`)
+    }
+    const available = await isActivityRangeAvailable(
+      input.activityId,
+      input.bookingDate,
+      input.startTime,
+      input.endTime,
+      input.quantity,
+    )
+    if (!available) {
+      throw new Error('Not enough units are available for that time slot.')
+    }
   }
 
-  const available = await isActivityRangeAvailable(
-    input.activityId,
-    input.bookingDate,
-    input.startTime,
-    input.endTime,
-    input.quantity,
-  )
-  if (!available) {
-    throw new Error('Not enough units are available for that time slot.')
-  }
-
-  const { data, error } = await supabase
-    .rpc('create_activity_booking', {
-      p_activity_id: input.activityId,
-      p_customer_name: input.customerName.trim(),
-      p_email: input.email.trim(),
-      p_contact_number: input.contactNumber.trim(),
-      p_booking_date: input.bookingDate,
-      p_start_time: input.startTime,
-      p_end_time: input.endTime,
-      p_duration_hours: input.durationHours,
-      p_players: input.players,
-      p_quantity: input.quantity,
-      p_notes: input.notes?.trim() || null,
-    })
+  const { data, error } = await supabase.rpc('create_activity_booking', {
+    p_activity_id: input.activityId,
+    p_customer_name: input.customerName.trim(),
+    p_email: input.email.trim(),
+    p_contact_number: input.contactNumber.trim(),
+    p_booking_date: input.bookingDate,
+    p_start_time: input.startTime,
+    p_end_time: input.endTime,
+    p_duration_hours: input.durationHours,
+    p_players: input.players,
+    p_quantity: input.quantity || 1,
+    p_notes: input.notes?.trim() || null,
+    p_unit_id: input.unitId ?? null,
+  })
   if (error) throw new Error(mapPostgrestError(error))
 
   const result = Array.isArray(data) ? data[0] : data
@@ -352,7 +512,7 @@ export async function getActivityBookingByReference(
 ): Promise<ActivityBooking | null> {
   const { data, error } = await supabase
     .from('activity_bookings')
-    .select('*, activity:activities(*)')
+    .select('*, activity:activities(*), unit:activity_units(*)')
     .eq('reference', reference)
     .maybeSingle()
   if (error) throw new Error(mapPostgrestError(error))
@@ -367,7 +527,7 @@ export async function updateActivityBookingStatus(
     .from('activity_bookings')
     .update({ status, updated_at: new Date().toISOString() })
     .eq('id', id)
-    .select('*, activity:activities(*)')
+    .select('*, activity:activities(*), unit:activity_units(*)')
     .single()
   if (error) throw new Error(mapPostgrestError(error))
   return rowToBooking(data as ActivityBookingRow)

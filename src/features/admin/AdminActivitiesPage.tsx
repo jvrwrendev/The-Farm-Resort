@@ -8,13 +8,18 @@ import {
   Gauge,
   ImagePlus,
   Loader2,
+  Pencil,
+  Plus,
   Search,
+  Trash2,
   Upload,
+  Wrench,
   XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -35,24 +40,34 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PageHeading, StatCard, StatusBadge } from '@/features/admin/components'
-import type { Activity, ActivityBookingStatus, ActivityType } from '@/features/activities/types'
+import type {
+  ActivityBookingStatus,
+  ActivityType,
+  ActivityUnit,
+  ActivityUnitInput,
+  ActivityUnitStatus,
+} from '@/features/activities/types'
 import {
   createActivity,
-  listAllActivities,
+  createActivityUnit,
+  deleteActivityUnit,
   listActivityBookings,
+  listActivityUnits,
+  listAllActivities,
   updateActivity,
   updateActivityBookingStatus,
+  updateActivityUnit,
   uploadActivityImage,
 } from '@/services/activity.service'
 import { formatBookingDate, formatTimeLabel } from '@/features/activities/utils'
-import { formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 
 const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_SIZE = 2 * 1024 * 1024
 
-const TABS: Array<{ value: ActivityType; label: string; icon: typeof CircleDot }> = [
-  { value: 'billiards', label: 'Billiards', icon: CircleDot },
-  { value: 'atv', label: 'ATV Rental', icon: Gauge },
+const TABS: Array<{ value: ActivityType; label: string; icon: typeof CircleDot; unit: string }> = [
+  { value: 'billiards', label: 'Billiards', icon: CircleDot, unit: 'Table' },
+  { value: 'atv', label: 'ATV Rental', icon: Gauge, unit: 'ATV' },
 ]
 
 const STATUS_OPTIONS: Array<{ value: ActivityBookingStatus | 'all'; label: string }> = [
@@ -63,66 +78,71 @@ const STATUS_OPTIONS: Array<{ value: ActivityBookingStatus | 'all'; label: strin
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
-interface ActivityForm {
+interface TypeForm {
   name: string
   description: string
-  imageUrl: string
-  hourlyRate: number
-  weekdayRate: number
-  weekendRate: number
-  inventoryCount: number
-  maxPlayers: number
   openTime: string
   closeTime: string
   isAvailable: boolean
   isActive: boolean
+  weekdayRate: number
+  weekendRate: number
+  hourlyRate: number
 }
 
-const EMPTY_FORM: ActivityForm = {
-  name: '',
-  description: '',
-  imageUrl: '',
-  hourlyRate: 0,
-  weekdayRate: 0,
-  weekendRate: 0,
-  inventoryCount: 1,
-  maxPlayers: 4,
-  openTime: '08:00',
-  closeTime: '18:00',
-  isAvailable: true,
-  isActive: true,
-}
+type UnitForm = ActivityUnitInput
 
-function activityToForm(activity: Activity): ActivityForm {
+function emptyUnitForm(type: ActivityType): UnitForm {
   return {
-    name: activity.name,
-    description: activity.description,
-    imageUrl: activity.imageUrl,
-    hourlyRate: activity.hourlyRate,
-    weekdayRate: activity.weekdayRate,
-    weekendRate: activity.weekendRate,
-    inventoryCount: activity.inventoryCount,
-    maxPlayers: activity.maxPlayers,
-    openTime: activity.openTime,
-    closeTime: activity.closeTime,
-    isAvailable: activity.isAvailable,
-    isActive: activity.isActive,
+    activityType: type,
+    name: '',
+    identifier: '',
+    description: '',
+    imageUrl: '',
+    hourlyRate: 0,
+    weekdayRate: 0,
+    weekendRate: 0,
+    maxPlayers: type === 'atv' ? 2 : 4,
+    status: 'available',
+    isActive: true,
+    sortOrder: 0,
   }
 }
 
-function AdminActivityTab({ type }: { type: ActivityType }) {
-  const queryClient = useQueryClient()
-  const fileInputRef = useRef<HTMLInputElement>(null)
+function unitToForm(unit: ActivityUnit): UnitForm {
+  return {
+    activityType: unit.activityType,
+    name: unit.name,
+    identifier: unit.identifier,
+    description: unit.description,
+    imageUrl: unit.imageUrl,
+    hourlyRate: unit.hourlyRate,
+    weekdayRate: unit.weekdayRate,
+    weekendRate: unit.weekendRate,
+    maxPlayers: unit.maxPlayers,
+    status: unit.status,
+    isActive: unit.isActive,
+    sortOrder: unit.sortOrder,
+  }
+}
 
-  const { data: allActivities = [], isLoading: activitiesLoading } = useQuery({
+function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: string }) {
+  const queryClient = useQueryClient()
+  const unitFileRef = useRef<HTMLInputElement>(null)
+
+  const { data: allActivities = [] } = useQuery({
     queryKey: ['activities', 'all'],
     queryFn: listAllActivities,
   })
-
-  const activities = useMemo(
-    () => allActivities.filter((item) => item.type === type),
+  const activity = useMemo(
+    () => allActivities.find((item) => item.type === type),
     [allActivities, type],
   )
+
+  const { data: units = [], isLoading: unitsLoading } = useQuery({
+    queryKey: ['activity-units', type, 'admin'],
+    queryFn: () => listActivityUnits(type, { includeInactive: true }),
+  })
 
   const { data: bookings = [], isLoading: bookingsLoading } = useQuery({
     queryKey: ['activity-bookings', type],
@@ -130,24 +150,62 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
     staleTime: 0,
   })
 
-  const activity = activities[0]
+  const [typeForm, setTypeForm] = useState<TypeForm>({
+    name: type === 'atv' ? 'ATV Rental' : 'Billiards',
+    description: '',
+    openTime: '08:00',
+    closeTime: type === 'atv' ? '18:00' : '22:00',
+    isAvailable: true,
+    isActive: true,
+    weekdayRate: 0,
+    weekendRate: 0,
+    hourlyRate: 0,
+  })
+  const [savingType, setSavingType] = useState(false)
 
-  const [form, setForm] = useState<ActivityForm>(EMPTY_FORM)
-  const [saving, setSaving] = useState(false)
-  const [uploading, setUploading] = useState(false)
+  const [unitDialogOpen, setUnitDialogOpen] = useState(false)
+  const [editingUnit, setEditingUnit] = useState<ActivityUnit | null>(null)
+  const [unitForm, setUnitForm] = useState<UnitForm>(emptyUnitForm(type))
+  const [savingUnit, setSavingUnit] = useState(false)
+  const [uploadingUnitImage, setUploadingUnitImage] = useState(false)
+  const [deleteUnitTarget, setDeleteUnitTarget] = useState<ActivityUnit | null>(null)
+
   const [statusFilter, setStatusFilter] = useState<ActivityBookingStatus | 'all'>('all')
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    setForm(activity ? activityToForm(activity) : { ...EMPTY_FORM, name: type === 'atv' ? 'ATV Rental' : 'Billiards Table' })
-  }, [activity, type])
+    if (!activity) return
+    setTypeForm({
+      name: activity.name,
+      description: activity.description,
+      openTime: activity.openTime,
+      closeTime: activity.closeTime,
+      isAvailable: activity.isAvailable,
+      isActive: activity.isActive,
+      weekdayRate: activity.weekdayRate,
+      weekendRate: activity.weekendRate,
+      hourlyRate: activity.hourlyRate,
+    })
+  }, [activity])
+
+  const refresh = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: ['activities'] })
+    queryClient.invalidateQueries({ queryKey: ['activity-units'] })
+    queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
+  }, [queryClient])
 
   const filteredBookings = useMemo(() => {
     const term = search.trim().toLowerCase()
     return bookings.filter((booking) => {
       if (statusFilter !== 'all' && booking.status !== statusFilter) return false
       if (!term) return true
-      return [booking.reference, booking.customerName, booking.email, booking.contactNumber]
+      return [
+        booking.reference,
+        booking.customerName,
+        booking.email,
+        booking.contactNumber,
+        booking.unitName,
+      ]
         .join(' ')
         .toLowerCase()
         .includes(term)
@@ -170,12 +228,65 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
     [bookings],
   )
 
-  const refresh = useCallback(() => {
-    queryClient.invalidateQueries({ queryKey: ['activities'] })
-    queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
-  }, [queryClient])
+  const saveType = async () => {
+    if (!typeForm.name.trim()) {
+      toast.error('Activity name is required.')
+      return
+    }
+    if (typeForm.closeTime <= typeForm.openTime) {
+      toast.error('Closing time must be after opening time.')
+      return
+    }
+    setSavingType(true)
+    try {
+      const payload = {
+        type,
+        name: typeForm.name,
+        description: typeForm.description,
+        openTime: typeForm.openTime,
+        closeTime: typeForm.closeTime,
+        isAvailable: typeForm.isAvailable,
+        isActive: typeForm.isActive,
+        weekdayRate: typeForm.weekdayRate,
+        weekendRate: typeForm.weekendRate,
+        hourlyRate: typeForm.hourlyRate,
+        inventoryCount: Math.max(1, units.length),
+        maxPlayers: Math.max(1, ...units.map((u) => u.maxPlayers), 1),
+      }
+      if (activity) {
+        await updateActivity(activity.id, payload)
+        toast.success('Activity settings updated.')
+      } else {
+        await createActivity(payload)
+        toast.success('Activity created.')
+      }
+      refresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to save activity settings.')
+    } finally {
+      setSavingType(false)
+    }
+  }
 
-  const handleImageSelected = async (file: File) => {
+  const openAddUnit = () => {
+    setEditingUnit(null)
+    setUnitForm({
+      ...emptyUnitForm(type),
+      weekdayRate: typeForm.weekdayRate,
+      weekendRate: typeForm.weekendRate,
+      hourlyRate: typeForm.hourlyRate,
+      sortOrder: units.length,
+    })
+    setUnitDialogOpen(true)
+  }
+
+  const openEditUnit = (unit: ActivityUnit) => {
+    setEditingUnit(unit)
+    setUnitForm(unitToForm(unit))
+    setUnitDialogOpen(true)
+  }
+
+  const handleUnitImage = async (file: File) => {
     if (!ACCEPTED.includes(file.type)) {
       toast.error('Unsupported file type. Please use JPG, PNG, or WebP.')
       return
@@ -184,60 +295,65 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
       toast.error('File is too large. Maximum size is 2 MB.')
       return
     }
-    setUploading(true)
+    setUploadingUnitImage(true)
     try {
       const url = await uploadActivityImage(file)
-      setForm((prev) => ({ ...prev, imageUrl: url }))
-      toast.success('Image uploaded. Save changes to publish it.')
-    } catch {
-      toast.error('Upload failed. Please try again.')
+      setUnitForm((prev) => ({ ...prev, imageUrl: url }))
+      toast.success('Image uploaded.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Upload failed.')
     } finally {
-      setUploading(false)
+      setUploadingUnitImage(false)
     }
   }
 
-  const handleSave = async () => {
-    if (!form.name.trim()) {
-      toast.error('Activity name is required.')
+  const saveUnit = async () => {
+    if (!unitForm.name.trim()) {
+      toast.error(`${unitLabel} name or ID is required.`)
       return
     }
-    if (form.closeTime <= form.openTime) {
-      toast.error('Closing time must be after opening time.')
+    if (unitForm.maxPlayers < 1) {
+      toast.error('Max participants must be at least 1.')
       return
     }
-    if (!Number.isInteger(form.inventoryCount) || form.inventoryCount < 1) {
-      toast.error('Inventory must be at least one.')
-      return
-    }
-    if (!Number.isInteger(form.maxPlayers) || form.maxPlayers < 1) {
-      toast.error('Participant capacity must be at least one.')
-      return
-    }
-    setSaving(true)
+    setSavingUnit(true)
     try {
-      if (activity) {
-        await updateActivity(activity.id, { ...form, type })
-        toast.success('Activity updated.')
+      if (editingUnit) {
+        await updateActivityUnit(editingUnit.id, unitForm)
+        toast.success(`${unitLabel} updated.`)
       } else {
-        await createActivity({ ...form, type })
-        toast.success('Activity created.')
+        await createActivityUnit(unitForm)
+        toast.success(`${unitLabel} added.`)
       }
+      setUnitDialogOpen(false)
       refresh()
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to save activity.')
+      toast.error(error instanceof Error ? error.message : `Failed to save ${unitLabel.toLowerCase()}.`)
     } finally {
-      setSaving(false)
+      setSavingUnit(false)
     }
   }
 
-  const handleStatus = async (bookingId: string, status: ActivityBookingStatus) => {
+  const handleDeleteUnit = async () => {
+    if (!deleteUnitTarget) return
+    try {
+      await deleteActivityUnit(deleteUnitTarget.id)
+      toast.success(`${unitLabel} deleted.`)
+      setDeleteUnitTarget(null)
+      refresh()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Delete failed.')
+    }
+  }
+
+  const handleBookingStatus = async (bookingId: string, status: ActivityBookingStatus) => {
     try {
       await updateActivityBookingStatus(bookingId, status)
       toast.success(
         status === 'confirmed'
           ? 'Booking approved.'
           : status === 'cancelled'
-            ? 'Booking rejected.'
+            ? 'Booking rejected/cancelled.'
             : 'Booking marked completed.',
       )
       queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
@@ -253,190 +369,140 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
         <StatCard title="Pending" value={stats.pending} icon={Clock} hint="Awaiting review" />
         <StatCard title="Confirmed" value={stats.confirmed} icon={CheckCircle2} />
         <StatCard title="Completed" value={stats.completed} icon={CheckCircle2} />
-        <StatCard
-          title="Revenue"
-          value={formatCurrency(stats.revenue)}
-          icon={CheckCircle2}
-          hint="Confirmed + completed"
-        />
+        <StatCard title="Revenue" value={formatCurrency(stats.revenue)} icon={CheckCircle2} />
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-display text-lg">
-            {activity ? `Edit ${activity.name}` : 'Create activity'}
-          </CardTitle>
+          <CardTitle className="font-display text-lg">{type === 'atv' ? 'ATV' : 'Billiards'} Settings</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Update the public content, pricing, operating hours, and availability.
+            Shared hours and default pricing. Individual {unitLabel.toLowerCase()}s can override pricing.
           </p>
         </CardHeader>
-        <CardContent className="space-y-5">
+        <CardContent className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
-              <Label>Activity name</Label>
-              <Input
-                value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
-              />
+              <Label>Name</Label>
+              <Input value={typeForm.name} onChange={(e) => setTypeForm((p) => ({ ...p, name: e.target.value }))} />
             </div>
             <div className="space-y-2 sm:col-span-2">
               <Label>Description</Label>
-              <Textarea
-                rows={3}
-                value={form.description}
-                onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-              />
+              <Textarea rows={2} value={typeForm.description} onChange={(e) => setTypeForm((p) => ({ ...p, description: e.target.value }))} />
             </div>
             <div className="space-y-2">
-              <Label>Hourly rate</Label>
-              <Input
-                type="number"
-                min={0}
-                value={form.hourlyRate}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, hourlyRate: Number(e.target.value) }))
-                }
-              />
+              <Label>Default weekday rate</Label>
+              <Input type="number" min={0} value={typeForm.weekdayRate} onChange={(e) => setTypeForm((p) => ({ ...p, weekdayRate: Number(e.target.value) }))} />
             </div>
             <div className="space-y-2">
-              <Label>Weekday rate</Label>
-              <Input
-                type="number"
-                min={0}
-                value={form.weekdayRate}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, weekdayRate: Number(e.target.value) }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Weekend rate</Label>
-              <Input
-                type="number"
-                min={0}
-                value={form.weekendRate}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, weekendRate: Number(e.target.value) }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>{type === 'atv' ? 'Number of ATVs' : 'Number of tables'}</Label>
-              <Input
-                type="number"
-                min={1}
-                value={form.inventoryCount}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, inventoryCount: Number(e.target.value) }))
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Max participants per {type === 'atv' ? 'ATV' : 'table'}</Label>
-              <Input
-                type="number"
-                min={1}
-                value={form.maxPlayers}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, maxPlayers: Number(e.target.value) }))
-                }
-              />
+              <Label>Default weekend rate</Label>
+              <Input type="number" min={0} value={typeForm.weekendRate} onChange={(e) => setTypeForm((p) => ({ ...p, weekendRate: Number(e.target.value) }))} />
             </div>
             <div className="space-y-2">
               <Label>Opening time</Label>
-              <Input
-                type="time"
-                value={form.openTime}
-                onChange={(e) => setForm((prev) => ({ ...prev, openTime: e.target.value }))}
-              />
+              <Input type="time" value={typeForm.openTime} onChange={(e) => setTypeForm((p) => ({ ...p, openTime: e.target.value }))} />
             </div>
             <div className="space-y-2">
               <Label>Closing time</Label>
-              <Input
-                type="time"
-                value={form.closeTime}
-                onChange={(e) => setForm((prev) => ({ ...prev, closeTime: e.target.value }))}
-              />
+              <Input type="time" value={typeForm.closeTime} onChange={(e) => setTypeForm((p) => ({ ...p, closeTime: e.target.value }))} />
             </div>
-            <div className="flex flex-wrap items-center gap-5 sm:col-span-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.isAvailable}
-                  onChange={(e) => setForm((prev) => ({ ...prev, isAvailable: e.target.checked }))}
-                />
-                Available for booking
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.isActive}
-                  onChange={(e) => setForm((prev) => ({ ...prev, isActive: e.target.checked }))}
-                />
-                Visible on the public site
-              </label>
-            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={typeForm.isAvailable} onChange={(e) => setTypeForm((p) => ({ ...p, isAvailable: e.target.checked }))} />
+              Available for booking
+            </label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={typeForm.isActive} onChange={(e) => setTypeForm((p) => ({ ...p, isActive: e.target.checked }))} />
+              Visible on public site
+            </label>
           </div>
-
-          <div className="space-y-3">
-            <Label>Activity image</Label>
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-              <div className="flex h-28 w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted">
-                {form.imageUrl ? (
-                  <img
-                    src={form.imageUrl}
-                    alt={form.name || 'Activity'}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <ImagePlus className="h-7 w-7 text-muted-foreground" />
-                )}
-              </div>
-              <div className="space-y-2">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp"
-                  className="hidden"
-                  onChange={(e) => {
-                    const file = e.target.files?.[0]
-                    if (file) void handleImageSelected(file)
-                    e.target.value = ''
-                  }}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploading}
-                >
-                  {uploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Upload className="h-4 w-4" />
-                  )}
-                  {form.imageUrl ? 'Replace image' : 'Upload image'}
-                </Button>
-                {form.imageUrl && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setForm((prev) => ({ ...prev, imageUrl: '' }))}
-                  >
-                    Remove
-                  </Button>
-                )}
-                <p className="text-xs text-muted-foreground">JPG, PNG, or WebP · max 2 MB</p>
-              </div>
-            </div>
-          </div>
-
           <div className="flex justify-end">
-            <Button onClick={handleSave} loading={saving || activitiesLoading}>
-              {activity ? 'Save changes' : 'Create activity'}
-            </Button>
+            <Button onClick={saveType} loading={savingType}>Save settings</Button>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle className="font-display text-lg">{unitLabel}s</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Add and manage individual {unitLabel.toLowerCase()}s. Customers select a specific {unitLabel.toLowerCase()} when booking.
+            </p>
+          </div>
+          <Button onClick={openAddUnit}>
+            <Plus className="h-4 w-4" /> Add {unitLabel}
+          </Button>
+        </CardHeader>
+        <CardContent>
+          {unitsLoading ? (
+            <p className="text-sm text-muted-foreground">Loading {unitLabel.toLowerCase()}s…</p>
+          ) : units.length === 0 ? (
+            <div className="rounded-xl border border-dashed p-8 text-center">
+              <p className="font-medium">No {unitLabel.toLowerCase()}s yet</p>
+              <p className="mt-1 text-sm text-muted-foreground">Add your first {unitLabel.toLowerCase()} to enable bookings.</p>
+              <Button className="mt-4" onClick={openAddUnit}><Plus className="h-4 w-4" /> Add {unitLabel}</Button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {units.map((unit) => (
+                <div key={unit.id} className="overflow-hidden rounded-xl border">
+                  <div className="aspect-[16/10] bg-muted">
+                    {unit.imageUrl ? (
+                      <img src={unit.imageUrl} alt={unit.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
+                        <ImagePlus className="h-7 w-7" />
+                      </div>
+                    )}
+                  </div>
+                  <div className="space-y-2 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="font-semibold">{unit.name}</p>
+                        {unit.identifier && <p className="text-xs text-muted-foreground">{unit.identifier}</p>}
+                      </div>
+                      <span className={cn(
+                        'rounded-full px-2 py-0.5 text-xs font-medium',
+                        unit.status === 'available' ? 'bg-emerald-500/90 text-white' : 'bg-slate-700/90 text-white',
+                        !unit.isActive && 'bg-muted text-muted-foreground',
+                      )}>
+                        {!unit.isActive ? 'Inactive' : unit.status === 'maintenance' ? 'Maintenance' : 'Available'}
+                      </span>
+                    </div>
+                    {unit.description && <p className="line-clamp-2 text-xs text-muted-foreground">{unit.description}</p>}
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <span className="rounded-full bg-muted px-2 py-1">WD ₱{unit.weekdayRate}/hr</span>
+                      <span className="rounded-full bg-muted px-2 py-1">WE ₱{unit.weekendRate}/hr</span>
+                      <span className="rounded-full bg-muted px-2 py-1">Max {unit.maxPlayers}</span>
+                    </div>
+                    <div className="flex gap-1 pt-1">
+                      <Button variant="ghost" size="sm" onClick={() => openEditUnit(unit)}><Pencil className="h-4 w-4" /></Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        title={unit.status === 'available' ? 'Set maintenance' : 'Set available'}
+                        onClick={async () => {
+                          try {
+                            await updateActivityUnit(unit.id, {
+                              status: unit.status === 'available' ? 'maintenance' : 'available',
+                            })
+                            refresh()
+                            toast.success(`${unitLabel} status updated.`)
+                          } catch {
+                            toast.error('Failed to update status.')
+                          }
+                        }}
+                      >
+                        <Wrench className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteUnitTarget(unit)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -444,32 +510,18 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
         <CardHeader className="flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="font-display text-lg">Reservations</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              View, approve, reject, or complete customer reservations.
-            </p>
+            <p className="text-sm text-muted-foreground">View and manage customer bookings.</p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                className="pl-9 sm:w-64"
-                placeholder="Search reference or name"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
+              <Input className="pl-9 sm:w-64" placeholder="Search reference, name, or unit" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(value) => setStatusFilter(value as ActivityBookingStatus | 'all')}
-            >
-              <SelectTrigger className="sm:w-44">
-                <SelectValue />
-              </SelectTrigger>
+            <Select value={statusFilter} onValueChange={(value) => setStatusFilter(value as ActivityBookingStatus | 'all')}>
+              <SelectTrigger className="sm:w-44"><SelectValue /></SelectTrigger>
               <SelectContent>
                 {STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
+                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -481,12 +533,9 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
               <TableRow>
                 <TableHead>Reference</TableHead>
                 <TableHead>Customer</TableHead>
+                <TableHead>{unitLabel}</TableHead>
                 <TableHead className="hidden md:table-cell">Date</TableHead>
                 <TableHead className="hidden sm:table-cell">Time</TableHead>
-                <TableHead className="hidden lg:table-cell">
-                  {type === 'atv' ? 'ATVs' : 'Tables'}
-                </TableHead>
-                <TableHead className="hidden xl:table-cell">Guests</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="w-[1%] text-right">Actions</TableHead>
@@ -494,79 +543,38 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
             </TableHeader>
             <TableBody>
               {bookingsLoading ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                    Loading reservations…
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">Loading reservations…</TableCell></TableRow>
               ) : filteredBookings.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
-                    No reservations match your filters.
-                  </TableCell>
-                </TableRow>
+                <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">No reservations match your filters.</TableCell></TableRow>
               ) : (
                 filteredBookings.map((booking) => (
                   <TableRow key={booking.id}>
-                    <TableCell className="font-mono text-xs font-medium">
-                      {booking.reference}
-                    </TableCell>
+                    <TableCell className="font-mono text-xs font-medium">{booking.reference}</TableCell>
                     <TableCell>
                       <p className="font-medium">{booking.customerName}</p>
                       <p className="text-xs text-muted-foreground">{booking.email}</p>
                     </TableCell>
+                    <TableCell>{booking.unitName}</TableCell>
                     <TableCell className="hidden md:table-cell">
                       <p>{format(parseISO(booking.bookingDate), 'MMM d, yyyy')}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatBookingDate(booking.bookingDate, 'EEE')}
-                      </p>
+                      <p className="text-xs text-muted-foreground">{formatBookingDate(booking.bookingDate, 'EEE')}</p>
                     </TableCell>
                     <TableCell className="hidden sm:table-cell">
                       <p>{formatTimeLabel(booking.startTime)}</p>
-                      <p className="text-xs text-muted-foreground">
-                        to {formatTimeLabel(booking.endTime)}
-                      </p>
+                      <p className="text-xs text-muted-foreground">to {formatTimeLabel(booking.endTime)}</p>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">{booking.quantity}</TableCell>
-                    <TableCell className="hidden xl:table-cell">{booking.players}</TableCell>
                     <TableCell>{formatCurrency(booking.totalAmount)}</TableCell>
-                    <TableCell>
-                      <StatusBadge status={booking.status} />
-                    </TableCell>
+                    <TableCell><StatusBadge status={booking.status} /></TableCell>
                     <TableCell className="w-[1%] text-right">
                       <div className="flex justify-end gap-1">
                         {booking.status === 'pending' && (
                           <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Approve"
-                              onClick={() => handleStatus(booking.id, 'confirmed')}
-                            >
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Reject"
-                              onClick={() => handleStatus(booking.id, 'cancelled')}
-                            >
-                              <XCircle className="h-4 w-4 text-destructive" />
-                            </Button>
+                            <Button variant="ghost" size="sm" title="Approve" onClick={() => handleBookingStatus(booking.id, 'confirmed')}><CheckCircle2 className="h-4 w-4 text-emerald-600" /></Button>
+                            <Button variant="ghost" size="sm" title="Reject" onClick={() => handleBookingStatus(booking.id, 'cancelled')}><XCircle className="h-4 w-4 text-destructive" /></Button>
                           </>
                         )}
                         {booking.status === 'confirmed' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Mark completed"
-                            onClick={() => handleStatus(booking.id, 'completed')}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {(booking.status === 'completed' || booking.status === 'cancelled') && (
-                          <span className="px-2 text-xs text-muted-foreground">—</span>
+                          <Button variant="ghost" size="sm" title="Complete" onClick={() => handleBookingStatus(booking.id, 'completed')}><CheckCircle2 className="h-4 w-4" /></Button>
                         )}
                       </div>
                     </TableCell>
@@ -577,6 +585,90 @@ function AdminActivityTab({ type }: { type: ActivityType }) {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={unitDialogOpen} onOpenChange={(o) => !o && setUnitDialogOpen(false)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{editingUnit ? `Edit ${unitLabel}` : `Add ${unitLabel}`}</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label>{unitLabel} name / ID *</Label>
+              <Input value={unitForm.name} onChange={(e) => setUnitForm((p) => ({ ...p, name: e.target.value }))} placeholder={type === 'atv' ? 'ATV 1' : 'Table 1'} />
+            </div>
+            <div className="space-y-2">
+              <Label>Identifier (optional)</Label>
+              <Input value={unitForm.identifier ?? ''} onChange={(e) => setUnitForm((p) => ({ ...p, identifier: e.target.value }))} placeholder={type === 'atv' ? 'ATV-01' : 'TBL-01'} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Description</Label>
+              <Textarea rows={2} value={unitForm.description} onChange={(e) => setUnitForm((p) => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Weekday rate / hour</Label>
+              <Input type="number" min={0} value={unitForm.weekdayRate} onChange={(e) => setUnitForm((p) => ({ ...p, weekdayRate: Number(e.target.value) }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Weekend rate / hour</Label>
+              <Input type="number" min={0} value={unitForm.weekendRate} onChange={(e) => setUnitForm((p) => ({ ...p, weekendRate: Number(e.target.value) }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Max participants</Label>
+              <Input type="number" min={1} value={unitForm.maxPlayers} onChange={(e) => setUnitForm((p) => ({ ...p, maxPlayers: Number(e.target.value) }))} />
+            </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={unitForm.status} onValueChange={(v) => setUnitForm((p) => ({ ...p, status: v as ActivityUnitStatus }))}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="available">Available</SelectItem>
+                  <SelectItem value="maintenance">Maintenance</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>{unitLabel} image</Label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="flex h-28 w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted">
+                  {unitForm.imageUrl ? <img src={unitForm.imageUrl} alt={unitForm.name || unitLabel} className="h-full w-full object-cover" /> : <ImagePlus className="h-7 w-7 text-muted-foreground" />}
+                </div>
+                <div className="space-y-2">
+                  <input ref={unitFileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUnitImage(f); e.target.value = '' }} />
+                  <div className="flex flex-wrap gap-2">
+                    <Button type="button" variant="outline" onClick={() => unitFileRef.current?.click()} disabled={uploadingUnitImage}>
+                      {uploadingUnitImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                      {unitForm.imageUrl ? 'Replace image' : 'Upload image'}
+                    </Button>
+                    {unitForm.imageUrl && <Button type="button" variant="ghost" onClick={() => setUnitForm((p) => ({ ...p, imageUrl: '' }))}>Remove</Button>}
+                  </div>
+                  <p className="text-xs text-muted-foreground">JPG, PNG, or WebP · max 2 MB</p>
+                </div>
+              </div>
+            </div>
+            <label className="flex items-center gap-2 text-sm sm:col-span-2">
+              <input type="checkbox" checked={unitForm.isActive} onChange={(e) => setUnitForm((p) => ({ ...p, isActive: e.target.checked }))} />
+              Active (visible for booking when available)
+            </label>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setUnitDialogOpen(false)} disabled={savingUnit}>Cancel</Button>
+            <Button onClick={saveUnit} loading={savingUnit || uploadingUnitImage}>{editingUnit ? 'Save' : `Add ${unitLabel}`}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!deleteUnitTarget} onOpenChange={(o) => !o && setDeleteUnitTarget(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader><DialogTitle>Delete {unitLabel}</DialogTitle></DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Delete “{deleteUnitTarget?.name}”? Existing bookings will keep their history but may lose the direct unit link.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteUnitTarget(null)}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDeleteUnit}>Delete</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -588,7 +680,7 @@ export default function AdminActivitiesPage() {
     <div className="space-y-6">
       <PageHeading
         title="Activities"
-        description="Manage Billiards and ATV rental content, pricing, availability, and reservations."
+        description="Manage Billiards and ATV units, pricing, availability, and reservations."
       />
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ActivityType)}>
         <TabsList className="grid w-full grid-cols-2 sm:max-w-md">
@@ -601,7 +693,7 @@ export default function AdminActivitiesPage() {
         </TabsList>
         {TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value} className="mt-6">
-            <AdminActivityTab type={tab.value} />
+            <AdminActivityTab type={tab.value} unitLabel={tab.unit} />
           </TabsContent>
         ))}
       </Tabs>
