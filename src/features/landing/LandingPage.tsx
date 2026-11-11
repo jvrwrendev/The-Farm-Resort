@@ -5,6 +5,7 @@ import { HeroSection, AboutSection } from '@/features/landing/HeroSection'
 import { RoomsSection } from '@/features/landing/RoomsSection'
 import { GallerySection, AmenitiesSection, PoliciesSection } from '@/features/landing/GallerySection'
 import { AvailabilitySection } from '@/features/landing/AvailabilitySection'
+import { BookingSearchSection } from '@/features/landing/BookingSearchSection'
 import { ChatbotWidget } from '@/features/landing/ChatbotWidget'
 import { PickleballTeaserSection } from '@/features/pickleball/PickleballTeaserSection'
 import { ActivityTeaserSections } from '@/features/activities/ActivityTeaserSections'
@@ -34,6 +35,7 @@ export default function LandingPage() {
       <AmenitiesSection />
       <GallerySection />
       <AvailabilitySection />
+      <BookingSearchSection />
       <PoliciesSection />
       <ChatbotWidget />
     </PublicLayout>

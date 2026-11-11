@@ -17,6 +17,17 @@ export type DayPeriodDb = 'AM' | 'PM'
 /** How a reservation was created (channel / source). Mirrors the `booking_type` enum. */
 export type BookingTypeDb = 'online_booking' | 'walk_in' | 'contact_booking' | 'other_manual'
 
+export type BookingSearchType = 'accommodation' | 'pickleball' | 'billiards' | 'atv'
+
+export interface BookingSearchResult {
+  reference: string
+  customerName: string
+  bookingType: BookingSearchType
+  itemName: string
+  bookingDate: string
+  status: string
+}
+
 /** Alias kept for backwards compatibility with existing UI helpers. */
 export type BookingStatus = BookingStatusDb
 
