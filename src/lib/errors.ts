@@ -38,6 +38,16 @@ const FRIENDLY_RPC_MESSAGES: Record<string, string> = {
     'The selected unit or table is not available. Please choose another one.',
   ACTIVITY_UNIT_CONFLICT:
     'That unit or table is already booked for the selected time. Please choose another option.',
+  PICKLEBALL_COURT_NOT_FOUND: 'The selected pickleball court could not be found.',
+  PICKLEBALL_UNAVAILABLE: 'This court is currently unavailable for booking.',
+  PICKLEBALL_PAST_DATE: 'Please choose a future booking date.',
+  PICKLEBALL_INVALID_TIME: 'End time must be after start time.',
+  PICKLEBALL_OUTSIDE_HOURS: 'The selected time is outside court operating hours.',
+  PICKLEBALL_MAX_DURATION: 'A single court reservation can be up to 3 hours.',
+  PICKLEBALL_CAPACITY: 'The player count exceeds this court’s capacity.',
+  PICKLEBALL_SLOT_CONFLICT:
+    'That court is already reserved for the selected time. Please choose another slot.',
+  PICKLEBALL_WINDOW_EXCEEDED: 'Court bookings can be made up to 90 days ahead.',
 }
 
 export function mapSupabaseError(error: unknown): string {
@@ -70,6 +80,16 @@ export function mapPostgrestError(err: PostgrestError | null | undefined): strin
     return 'Service temporarily unavailable. Please retry.'
   }
   if (err.code === '23505') return 'This record already exists.'
+  if (err.code === '23503') {
+    const msg = err.message ?? ''
+    if (/pickleball_bookings/i.test(msg)) {
+      return 'This court has existing reservations and cannot be deleted. Deactivate it instead.'
+    }
+    if (/activity_bookings/i.test(msg)) {
+      return 'This unit has existing reservations and cannot be deleted. Deactivate it instead.'
+    }
+    return 'This record is referenced by other data and cannot be deleted.'
+  }
   if (err.code === '42501') return "You don't have permission to do that."
   return mapSupabaseError(new Error(err.message))
 }

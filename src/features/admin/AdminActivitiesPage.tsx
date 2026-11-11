@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import {
+  Banknote,
   CheckCircle2,
   CircleDot,
   Clock,
   Gauge,
+  Hash,
   ImagePlus,
   Loader2,
   Pencil,
@@ -13,13 +15,22 @@ import {
   Search,
   Trash2,
   Upload,
+  Users,
   Wrench,
   XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -65,9 +76,21 @@ import { cn, formatCurrency } from '@/lib/utils'
 const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_SIZE = 2 * 1024 * 1024
 
-const TABS: Array<{ value: ActivityType; label: string; icon: typeof CircleDot; unit: string }> = [
-  { value: 'billiards', label: 'Billiards', icon: CircleDot, unit: 'Table' },
-  { value: 'atv', label: 'ATV Rental', icon: Gauge, unit: 'ATV' },
+const TABS: Array<{
+  value: ActivityType
+  label: string
+  icon: typeof CircleDot
+  unit: string
+  units: string
+}> = [
+  {
+    value: 'billiards',
+    label: 'Billiards',
+    icon: CircleDot,
+    unit: 'Billiard Table',
+    units: 'Billiard Tables',
+  },
+  { value: 'atv', label: 'ATV Rental', icon: Gauge, unit: 'ATV', units: 'ATVs' },
 ]
 
 const STATUS_OPTIONS: Array<{ value: ActivityBookingStatus | 'all'; label: string }> = [
@@ -81,6 +104,7 @@ const STATUS_OPTIONS: Array<{ value: ActivityBookingStatus | 'all'; label: strin
 interface TypeForm {
   name: string
   description: string
+  imageUrl: string
   openTime: string
   closeTime: string
   isAvailable: boolean
@@ -126,9 +150,18 @@ function unitToForm(unit: ActivityUnit): UnitForm {
   }
 }
 
-function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: string }) {
+function AdminActivityTab({
+  type,
+  unitLabel,
+  unitPlural,
+}: {
+  type: ActivityType
+  unitLabel: string
+  unitPlural: string
+}) {
   const queryClient = useQueryClient()
   const unitFileRef = useRef<HTMLInputElement>(null)
+  const typeFileRef = useRef<HTMLInputElement>(null)
 
   const { data: allActivities = [] } = useQuery({
     queryKey: ['activities', 'all'],
@@ -153,6 +186,7 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
   const [typeForm, setTypeForm] = useState<TypeForm>({
     name: type === 'atv' ? 'ATV Rental' : 'Billiards',
     description: '',
+    imageUrl: '',
     openTime: '08:00',
     closeTime: type === 'atv' ? '18:00' : '22:00',
     isAvailable: true,
@@ -162,12 +196,15 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
     hourlyRate: 0,
   })
   const [savingType, setSavingType] = useState(false)
+  const [uploadingTypeImage, setUploadingTypeImage] = useState(false)
 
   const [unitDialogOpen, setUnitDialogOpen] = useState(false)
   const [editingUnit, setEditingUnit] = useState<ActivityUnit | null>(null)
   const [unitForm, setUnitForm] = useState<UnitForm>(emptyUnitForm(type))
   const [savingUnit, setSavingUnit] = useState(false)
   const [uploadingUnitImage, setUploadingUnitImage] = useState(false)
+  const [unitImageFile, setUnitImageFile] = useState<File | null>(null)
+  const [unitImagePreview, setUnitImagePreview] = useState('')
   const [deleteUnitTarget, setDeleteUnitTarget] = useState<ActivityUnit | null>(null)
 
   const [statusFilter, setStatusFilter] = useState<ActivityBookingStatus | 'all'>('all')
@@ -178,6 +215,7 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
     setTypeForm({
       name: activity.name,
       description: activity.description,
+      imageUrl: activity.imageUrl,
       openTime: activity.openTime,
       closeTime: activity.closeTime,
       isAvailable: activity.isAvailable,
@@ -187,6 +225,13 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
       hourlyRate: activity.hourlyRate,
     })
   }, [activity])
+
+  useEffect(
+    () => () => {
+      if (unitImagePreview) URL.revokeObjectURL(unitImagePreview)
+    },
+    [unitImagePreview],
+  )
 
   const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: ['activities'] })
@@ -228,6 +273,16 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
     [bookings],
   )
 
+  const inventoryStats = useMemo(
+    () => ({
+      total: units.length,
+      available: units.filter((unit) => unit.isActive && unit.status === 'available').length,
+      maintenance: units.filter((unit) => unit.isActive && unit.status === 'maintenance').length,
+      inactive: units.filter((unit) => !unit.isActive).length,
+    }),
+    [units],
+  )
+
   const saveType = async () => {
     if (!typeForm.name.trim()) {
       toast.error('Activity name is required.')
@@ -243,6 +298,7 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
         type,
         name: typeForm.name,
         description: typeForm.description,
+        imageUrl: typeForm.imageUrl,
         openTime: typeForm.openTime,
         closeTime: typeForm.closeTime,
         isAvailable: typeForm.isAvailable,
@@ -270,6 +326,8 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
 
   const openAddUnit = () => {
     setEditingUnit(null)
+    setUnitImageFile(null)
+    setUnitImagePreview('')
     setUnitForm({
       ...emptyUnitForm(type),
       weekdayRate: typeForm.weekdayRate,
@@ -282,11 +340,22 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
 
   const openEditUnit = (unit: ActivityUnit) => {
     setEditingUnit(unit)
+    setUnitImageFile(null)
+    setUnitImagePreview('')
     setUnitForm(unitToForm(unit))
     setUnitDialogOpen(true)
   }
 
-  const handleUnitImage = async (file: File) => {
+  const closeUnitDialog = () => {
+    if (savingUnit || uploadingUnitImage) return
+    setUnitDialogOpen(false)
+    setEditingUnit(null)
+    setUnitImageFile(null)
+    setUnitImagePreview('')
+    if (unitFileRef.current) unitFileRef.current.value = ''
+  }
+
+  const handleTypeImage = async (file: File) => {
     if (!ACCEPTED.includes(file.type)) {
       toast.error('Unsupported file type. Please use JPG, PNG, or WebP.')
       return
@@ -295,21 +364,45 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
       toast.error('File is too large. Maximum size is 2 MB.')
       return
     }
-    setUploadingUnitImage(true)
+    setUploadingTypeImage(true)
     try {
       const url = await uploadActivityImage(file)
-      setUnitForm((prev) => ({ ...prev, imageUrl: url }))
-      toast.success('Image uploaded.')
+      setTypeForm((prev) => ({ ...prev, imageUrl: url }))
+      toast.success('Cover image uploaded. Save settings to apply it.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed.')
     } finally {
-      setUploadingUnitImage(false)
+      setUploadingTypeImage(false)
     }
+  }
+
+  const handleUnitImage = (file: File) => {
+    if (!ACCEPTED.includes(file.type)) {
+      toast.error('Unsupported file type. Please use JPG, PNG, or WebP.')
+      return
+    }
+    if (file.size > MAX_SIZE) {
+      toast.error('File is too large. Maximum size is 2 MB.')
+      return
+    }
+    setUnitImageFile(file)
+    setUnitImagePreview(URL.createObjectURL(file))
+  }
+
+  const removeUnitImage = () => {
+    setUnitImageFile(null)
+    setUnitImagePreview('')
+    setUnitForm((prev) => ({ ...prev, imageUrl: '' }))
+    if (unitFileRef.current) unitFileRef.current.value = ''
   }
 
   const saveUnit = async () => {
     if (!unitForm.name.trim()) {
       toast.error(`${unitLabel} name or ID is required.`)
+      return
+    }
+    if (unitForm.hourlyRate < 0 || unitForm.weekdayRate < 0 || unitForm.weekendRate < 0) {
+      toast.error('Rental prices cannot be negative.')
       return
     }
     if (unitForm.maxPlayers < 1) {
@@ -318,14 +411,32 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
     }
     setSavingUnit(true)
     try {
+      let imageUrl = unitForm.imageUrl
+      if (unitImageFile) {
+        setUploadingUnitImage(true)
+        try {
+          imageUrl = await uploadActivityImage(unitImageFile)
+        } finally {
+          setUploadingUnitImage(false)
+        }
+      }
+
+      const payload: UnitForm = {
+        ...unitForm,
+        imageUrl,
+      }
+
       if (editingUnit) {
-        await updateActivityUnit(editingUnit.id, unitForm)
+        await updateActivityUnit(editingUnit.id, payload)
         toast.success(`${unitLabel} updated.`)
       } else {
-        await createActivityUnit(unitForm)
+        await createActivityUnit(payload)
         toast.success(`${unitLabel} added.`)
       }
       setUnitDialogOpen(false)
+      setEditingUnit(null)
+      setUnitImageFile(null)
+      setUnitImagePreview('')
       refresh()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : `Failed to save ${unitLabel.toLowerCase()}.`)
@@ -362,6 +473,8 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
     }
   }
 
+  const UnitIcon = type === 'atv' ? Gauge : CircleDot
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
@@ -372,14 +485,17 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
         <StatCard title="Revenue" value={formatCurrency(stats.revenue)} icon={CheckCircle2} />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="font-display text-lg">{type === 'atv' ? 'ATV' : 'Billiards'} Settings</CardTitle>
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="border-b bg-muted/30">
+          <CardTitle className="font-display text-lg">
+            {type === 'atv' ? 'ATV' : 'Billiards'} Settings
+          </CardTitle>
           <p className="text-sm text-muted-foreground">
-            Shared hours and default pricing. Individual {unitLabel.toLowerCase()}s can override pricing.
+            Shared hours and default pricing. Individual {unitPlural.toLowerCase()} can override
+            pricing.
           </p>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-5 p-5 sm:p-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2 sm:col-span-2">
               <Label>Name</Label>
@@ -388,6 +504,63 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
             <div className="space-y-2 sm:col-span-2">
               <Label>Description</Label>
               <Textarea rows={2} value={typeForm.description} onChange={(e) => setTypeForm((p) => ({ ...p, description: e.target.value }))} />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Landing page cover image</Label>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+                <div className="flex h-28 w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted">
+                  {typeForm.imageUrl ? (
+                    <img
+                      src={typeForm.imageUrl}
+                      alt={`${typeForm.name || unitLabel} cover`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImagePlus className="h-7 w-7 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <input
+                    ref={typeFileRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0]
+                      if (file) void handleTypeImage(file)
+                      e.target.value = ''
+                    }}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => typeFileRef.current?.click()}
+                      disabled={uploadingTypeImage}
+                    >
+                      {uploadingTypeImage ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Upload className="h-4 w-4" />
+                      )}
+                      {typeForm.imageUrl ? 'Replace image' : 'Upload image'}
+                    </Button>
+                    {typeForm.imageUrl && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={() => setTypeForm((p) => ({ ...p, imageUrl: '' }))}
+                      >
+                        Remove
+                      </Button>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Shown in the landing page section. JPG, PNG, or WebP · max 2 MB. Individual{' '}
+                    {unitLabel.toLowerCase()} images are used when this is empty.
+                  </p>
+                </div>
+              </div>
             </div>
             <div className="space-y-2">
               <Label>Default weekday rate</Label>
@@ -415,70 +588,159 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
             </label>
           </div>
           <div className="flex justify-end">
-            <Button onClick={saveType} loading={savingType}>Save settings</Button>
+            <Button onClick={saveType} loading={savingType} disabled={uploadingTypeImage}>
+              Save settings
+            </Button>
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex-col gap-3 space-y-0 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle className="font-display text-lg">{unitLabel}s</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              Add and manage individual {unitLabel.toLowerCase()}s. Customers select a specific {unitLabel.toLowerCase()} when booking.
-            </p>
+      <Card className="overflow-hidden border-border/70 shadow-sm">
+        <CardHeader className="border-b bg-gradient-to-r from-primary/5 via-background to-background">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-primary">
+                <UnitIcon className="h-4 w-4" /> Inventory
+              </div>
+              <CardTitle className="font-display text-xl">{unitPlural}</CardTitle>
+              <p className="max-w-2xl text-sm text-muted-foreground">
+                Manage each {unitLabel.toLowerCase()} individually. Customers choose a specific{' '}
+                {unitLabel.toLowerCase()} when they make a reservation.
+              </p>
+              <div className="flex flex-wrap gap-2 pt-2 text-xs">
+                <span className="rounded-full border bg-background px-2.5 py-1 font-medium">
+                  {inventoryStats.total} total
+                </span>
+                <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 font-medium text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-950/30 dark:text-emerald-300">
+                  {inventoryStats.available} available
+                </span>
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-medium text-amber-700 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-300">
+                  {inventoryStats.maintenance} maintenance
+                </span>
+                {inventoryStats.inactive > 0 && (
+                  <span className="rounded-full border bg-muted px-2.5 py-1 font-medium text-muted-foreground">
+                    {inventoryStats.inactive} inactive
+                  </span>
+                )}
+              </div>
+            </div>
+            <Button onClick={openAddUnit} className="w-full shrink-0 sm:w-auto">
+              <Plus className="h-4 w-4" /> Add {unitLabel}
+            </Button>
           </div>
-          <Button onClick={openAddUnit}>
-            <Plus className="h-4 w-4" /> Add {unitLabel}
-          </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-5 sm:p-6">
           {unitsLoading ? (
-            <p className="text-sm text-muted-foreground">Loading {unitLabel.toLowerCase()}s…</p>
+            <div className="flex min-h-40 items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading {unitPlural.toLowerCase()}…
+            </div>
           ) : units.length === 0 ? (
-            <div className="rounded-xl border border-dashed p-8 text-center">
-              <p className="font-medium">No {unitLabel.toLowerCase()}s yet</p>
-              <p className="mt-1 text-sm text-muted-foreground">Add your first {unitLabel.toLowerCase()} to enable bookings.</p>
-              <Button className="mt-4" onClick={openAddUnit}><Plus className="h-4 w-4" /> Add {unitLabel}</Button>
+            <div className="flex min-h-56 flex-col items-center justify-center rounded-2xl border border-dashed bg-muted/20 p-8 text-center">
+              <span className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <UnitIcon className="h-6 w-6" />
+              </span>
+              <p className="font-display text-lg font-semibold">No {unitPlural.toLowerCase()} yet</p>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                Add your first {unitLabel.toLowerCase()} to make it available for reservations.
+              </p>
+              <Button className="mt-5" onClick={openAddUnit}>
+                <Plus className="h-4 w-4" /> Add {unitLabel}
+              </Button>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {units.map((unit) => (
-                <div key={unit.id} className="overflow-hidden rounded-xl border">
-                  <div className="aspect-[16/10] bg-muted">
+                <article
+                  key={unit.id}
+                  className="group overflow-hidden rounded-2xl border bg-card shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
+                >
+                  <div className="relative aspect-[16/9] overflow-hidden bg-muted">
                     {unit.imageUrl ? (
-                      <img src={unit.imageUrl} alt={unit.name} className="h-full w-full object-cover" />
+                      <img
+                        src={unit.imageUrl}
+                        alt={unit.name}
+                        className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                      />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-muted-foreground">
-                        <ImagePlus className="h-7 w-7" />
+                      <div className="flex h-full w-full flex-col items-center justify-center gap-2 bg-gradient-to-br from-muted to-muted/40 text-muted-foreground">
+                        <UnitIcon className="h-8 w-8 opacity-60" />
+                        <span className="text-xs">No image</span>
                       </div>
                     )}
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
+                    <Badge
+                      className={cn(
+                        'absolute right-3 top-3 border-0 shadow-sm',
+                        !unit.isActive
+                          ? 'bg-slate-700 text-white hover:bg-slate-700'
+                          : unit.status === 'maintenance'
+                            ? 'bg-amber-500 text-white hover:bg-amber-500'
+                            : 'bg-emerald-600 text-white hover:bg-emerald-600',
+                      )}
+                    >
+                      {!unit.isActive
+                        ? 'Inactive'
+                        : unit.status === 'maintenance'
+                          ? 'Maintenance'
+                          : 'Available'}
+                    </Badge>
+                    {unit.identifier && (
+                      <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full border border-white/20 bg-black/45 px-2.5 py-1 font-mono text-[11px] font-medium text-white backdrop-blur-sm">
+                        <Hash className="h-3 w-3" /> {unit.identifier}
+                      </span>
+                    )}
                   </div>
-                  <div className="space-y-2 p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <p className="font-semibold">{unit.name}</p>
-                        {unit.identifier && <p className="text-xs text-muted-foreground">{unit.identifier}</p>}
+                  <div className="space-y-4 p-4">
+                    <div>
+                      <h3 className="font-display text-lg font-semibold text-foreground">
+                        {unit.name}
+                      </h3>
+                      <p className="mt-1 min-h-10 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                        {unit.description || `Managed ${unitLabel.toLowerCase()} ready for booking.`}
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-xs">
+                      <div className="rounded-xl border bg-muted/30 p-2.5">
+                        <p className="text-muted-foreground">Weekday</p>
+                        <p className="mt-0.5 font-semibold text-foreground">
+                          {formatCurrency(unit.weekdayRate)} / hr
+                        </p>
                       </div>
-                      <span className={cn(
-                        'rounded-full px-2 py-0.5 text-xs font-medium',
-                        unit.status === 'available' ? 'bg-emerald-500/90 text-white' : 'bg-slate-700/90 text-white',
-                        !unit.isActive && 'bg-muted text-muted-foreground',
-                      )}>
-                        {!unit.isActive ? 'Inactive' : unit.status === 'maintenance' ? 'Maintenance' : 'Available'}
+                      <div className="rounded-xl border bg-muted/30 p-2.5">
+                        <p className="text-muted-foreground">Weekend</p>
+                        <p className="mt-0.5 font-semibold text-foreground">
+                          {formatCurrency(unit.weekendRate)} / hr
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Banknote className="h-3.5 w-3.5 text-primary" /> Base{' '}
+                        {formatCurrency(unit.hourlyRate)} / hr
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <Users className="h-3.5 w-3.5 text-primary" /> Max {unit.maxPlayers}
                       </span>
                     </div>
-                    {unit.description && <p className="line-clamp-2 text-xs text-muted-foreground">{unit.description}</p>}
-                    <div className="flex flex-wrap gap-2 text-xs">
-                      <span className="rounded-full bg-muted px-2 py-1">WD ₱{unit.weekdayRate}/hr</span>
-                      <span className="rounded-full bg-muted px-2 py-1">WE ₱{unit.weekendRate}/hr</span>
-                      <span className="rounded-full bg-muted px-2 py-1">Max {unit.maxPlayers}</span>
-                    </div>
-                    <div className="flex gap-1 pt-1">
-                      <Button variant="ghost" size="sm" onClick={() => openEditUnit(unit)}><Pencil className="h-4 w-4" /></Button>
+
+                    <div className="flex items-center gap-2 border-t pt-3">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1"
+                        onClick={() => openEditUnit(unit)}
+                      >
+                        <Pencil className="h-4 w-4" /> Edit
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
+                        aria-label={
+                          unit.status === 'available' ? 'Set to maintenance' : 'Mark as available'
+                        }
                         title={unit.status === 'available' ? 'Set maintenance' : 'Set available'}
                         onClick={async () => {
                           try {
@@ -494,12 +756,19 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
                       >
                         <Wrench className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => setDeleteUnitTarget(unit)}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        aria-label={`Delete ${unit.name}`}
+                        title={`Delete ${unit.name}`}
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setDeleteUnitTarget(unit)}
+                      >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}
@@ -586,74 +855,321 @@ function AdminActivityTab({ type, unitLabel }: { type: ActivityType; unitLabel: 
         </CardContent>
       </Card>
 
-      <Dialog open={unitDialogOpen} onOpenChange={(o) => !o && setUnitDialogOpen(false)}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editingUnit ? `Edit ${unitLabel}` : `Add ${unitLabel}`}</DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>{unitLabel} name / ID *</Label>
-              <Input value={unitForm.name} onChange={(e) => setUnitForm((p) => ({ ...p, name: e.target.value }))} placeholder={type === 'atv' ? 'ATV 1' : 'Table 1'} />
-            </div>
-            <div className="space-y-2">
-              <Label>Identifier (optional)</Label>
-              <Input value={unitForm.identifier ?? ''} onChange={(e) => setUnitForm((p) => ({ ...p, identifier: e.target.value }))} placeholder={type === 'atv' ? 'ATV-01' : 'TBL-01'} />
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>Description</Label>
-              <Textarea rows={2} value={unitForm.description} onChange={(e) => setUnitForm((p) => ({ ...p, description: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Weekday rate / hour</Label>
-              <Input type="number" min={0} value={unitForm.weekdayRate} onChange={(e) => setUnitForm((p) => ({ ...p, weekdayRate: Number(e.target.value) }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Weekend rate / hour</Label>
-              <Input type="number" min={0} value={unitForm.weekendRate} onChange={(e) => setUnitForm((p) => ({ ...p, weekendRate: Number(e.target.value) }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Max participants</Label>
-              <Input type="number" min={1} value={unitForm.maxPlayers} onChange={(e) => setUnitForm((p) => ({ ...p, maxPlayers: Number(e.target.value) }))} />
-            </div>
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={unitForm.status} onValueChange={(v) => setUnitForm((p) => ({ ...p, status: v as ActivityUnitStatus }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="maintenance">Maintenance</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2 sm:col-span-2">
-              <Label>{unitLabel} image</Label>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
-                <div className="flex h-28 w-44 shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted">
-                  {unitForm.imageUrl ? <img src={unitForm.imageUrl} alt={unitForm.name || unitLabel} className="h-full w-full object-cover" /> : <ImagePlus className="h-7 w-7 text-muted-foreground" />}
-                </div>
-                <div className="space-y-2">
-                  <input ref={unitFileRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleUnitImage(f); e.target.value = '' }} />
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" onClick={() => unitFileRef.current?.click()} disabled={uploadingUnitImage}>
-                      {uploadingUnitImage ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                      {unitForm.imageUrl ? 'Replace image' : 'Upload image'}
-                    </Button>
-                    {unitForm.imageUrl && <Button type="button" variant="ghost" onClick={() => setUnitForm((p) => ({ ...p, imageUrl: '' }))}>Remove</Button>}
-                  </div>
-                  <p className="text-xs text-muted-foreground">JPG, PNG, or WebP · max 2 MB</p>
-                </div>
+      <Dialog
+        open={unitDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) closeUnitDialog()
+        }}
+      >
+        <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto p-0">
+          <DialogHeader className="border-b bg-muted/30 px-6 py-5 pr-12 text-left">
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <UnitIcon className="h-5 w-5" />
+              </span>
+              <div>
+                <DialogTitle className="font-display text-xl">
+                  {editingUnit ? `Edit ${unitLabel}` : `Add ${unitLabel}`}
+                </DialogTitle>
+                <DialogDescription className="mt-1">
+                  {editingUnit
+                    ? `Update the details, pricing, and availability for ${editingUnit.name}.`
+                    : `Create a new ${unitLabel.toLowerCase()} without leaving this page.`}
+                </DialogDescription>
               </div>
             </div>
-            <label className="flex items-center gap-2 text-sm sm:col-span-2">
-              <input type="checkbox" checked={unitForm.isActive} onChange={(e) => setUnitForm((p) => ({ ...p, isActive: e.target.checked }))} />
-              Active (visible for booking when available)
-            </label>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setUnitDialogOpen(false)} disabled={savingUnit}>Cancel</Button>
-            <Button onClick={saveUnit} loading={savingUnit || uploadingUnitImage}>{editingUnit ? 'Save' : `Add ${unitLabel}`}</Button>
-          </DialogFooter>
+          </DialogHeader>
+
+          <form
+            onSubmit={(event) => {
+              event.preventDefault()
+              void saveUnit()
+            }}
+          >
+            <div className="space-y-7 px-6 py-5">
+              <section className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Basic information</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Give this {unitLabel.toLowerCase()} a clear name and reference number.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor={`${type}-unit-name`}>{unitLabel} name / number *</Label>
+                    <Input
+                      id={`${type}-unit-name`}
+                      autoFocus
+                      required
+                      value={unitForm.name}
+                      onChange={(event) =>
+                        setUnitForm((previous) => ({ ...previous, name: event.target.value }))
+                      }
+                      placeholder={type === 'atv' ? 'ATV 1' : 'Table 1'}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`${type}-unit-identifier`}>Identifier</Label>
+                    <Input
+                      id={`${type}-unit-identifier`}
+                      value={unitForm.identifier ?? ''}
+                      onChange={(event) =>
+                        setUnitForm((previous) => ({
+                          ...previous,
+                          identifier: event.target.value,
+                        }))
+                      }
+                      placeholder={type === 'atv' ? 'ATV-01' : 'TBL-01'}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Optional internal label or asset number.
+                    </p>
+                  </div>
+                  <div className="space-y-2 sm:col-span-2">
+                    <Label htmlFor={`${type}-unit-description`}>Description</Label>
+                    <Textarea
+                      id={`${type}-unit-description`}
+                      rows={3}
+                      value={unitForm.description}
+                      onChange={(event) =>
+                        setUnitForm((previous) => ({
+                          ...previous,
+                          description: event.target.value,
+                        }))
+                      }
+                      placeholder={`Describe this ${unitLabel.toLowerCase()} for administrators and guests.`}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-4 border-t pt-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Photo</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Add a clear image so guests can identify the correct {unitLabel.toLowerCase()}.
+                  </p>
+                </div>
+                <div className="flex flex-col gap-4 rounded-2xl border bg-muted/20 p-4 sm:flex-row sm:items-center">
+                  <div className="flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden rounded-xl border bg-muted sm:w-52">
+                    {unitImagePreview || unitForm.imageUrl ? (
+                      <img
+                        src={unitImagePreview || unitForm.imageUrl}
+                        alt={unitForm.name || unitLabel}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                        <ImagePlus className="h-8 w-8" />
+                        <span className="text-xs">No image selected</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-3">
+                    <input
+                      ref={unitFileRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(event) => {
+                        const file = event.target.files?.[0]
+                        if (file) handleUnitImage(file)
+                        event.target.value = ''
+                      }}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => unitFileRef.current?.click()}
+                        disabled={savingUnit || uploadingUnitImage}
+                      >
+                        <Upload className="h-4 w-4" />
+                        {unitImagePreview || unitForm.imageUrl ? 'Replace image' : 'Upload image'}
+                      </Button>
+                      {(unitImagePreview || unitForm.imageUrl) && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={removeUnitImage}
+                          disabled={savingUnit || uploadingUnitImage}
+                        >
+                          Remove
+                        </Button>
+                      )}
+                    </div>
+                    {unitImageFile && (
+                      <p className="truncate text-xs font-medium text-foreground">
+                        Selected: {unitImageFile.name}
+                      </p>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      JPG, JPEG, PNG, or WebP · maximum 2 MB. The image uploads when you save.
+                    </p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-4 border-t pt-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Pricing and capacity</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Set the hourly rental prices and participant limit for this item.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`${type}-unit-base-rate`}>Rental price / hour</Label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                        ₱
+                      </span>
+                      <Input
+                        id={`${type}-unit-base-rate`}
+                        className="pl-7"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={unitForm.hourlyRate}
+                        onChange={(event) =>
+                          setUnitForm((previous) => ({
+                            ...previous,
+                            hourlyRate: Number(event.target.value),
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`${type}-unit-weekday-rate`}>Weekday / hour</Label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                        ₱
+                      </span>
+                      <Input
+                        id={`${type}-unit-weekday-rate`}
+                        className="pl-7"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={unitForm.weekdayRate}
+                        onChange={(event) =>
+                          setUnitForm((previous) => ({
+                            ...previous,
+                            weekdayRate: Number(event.target.value),
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`${type}-unit-weekend-rate`}>Weekend / hour</Label>
+                    <div className="relative">
+                      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">
+                        ₱
+                      </span>
+                      <Input
+                        id={`${type}-unit-weekend-rate`}
+                        className="pl-7"
+                        type="number"
+                        min={0}
+                        step="0.01"
+                        value={unitForm.weekendRate}
+                        onChange={(event) =>
+                          setUnitForm((previous) => ({
+                            ...previous,
+                            weekendRate: Number(event.target.value),
+                          }))
+                        }
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`${type}-unit-capacity`}>Max participants</Label>
+                    <Input
+                      id={`${type}-unit-capacity`}
+                      type="number"
+                      min={1}
+                      required
+                      value={unitForm.maxPlayers}
+                      onChange={(event) =>
+                        setUnitForm((previous) => ({
+                          ...previous,
+                          maxPlayers: Number(event.target.value),
+                        }))
+                      }
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section className="space-y-4 border-t pt-6">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Availability</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Control whether this {unitLabel.toLowerCase()} can be selected for new bookings.
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Current status</Label>
+                    <Select
+                      value={unitForm.status}
+                      onValueChange={(value) =>
+                        setUnitForm((previous) => ({
+                          ...previous,
+                          status: value as ActivityUnitStatus,
+                        }))
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="available">Available for booking</SelectItem>
+                        <SelectItem value="maintenance">Under maintenance</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <label className="flex cursor-pointer items-start gap-3 rounded-xl border bg-muted/20 p-4 transition-colors hover:bg-muted/40">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                      checked={unitForm.isActive}
+                      onChange={(event) =>
+                        setUnitForm((previous) => ({
+                          ...previous,
+                          isActive: event.target.checked,
+                        }))
+                      }
+                    />
+                    <span>
+                      <span className="block text-sm font-medium text-foreground">
+                        Active and visible
+                      </span>
+                      <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                        Show this item to guests when its status is available.
+                      </span>
+                    </span>
+                  </label>
+                </div>
+              </section>
+            </div>
+
+            <DialogFooter className="sticky bottom-0 border-t bg-background/95 px-6 py-4 backdrop-blur-sm">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={closeUnitDialog}
+                disabled={savingUnit || uploadingUnitImage}
+              >
+                Cancel
+              </Button>
+              <Button type="submit" loading={savingUnit || uploadingUnitImage}>
+                {editingUnit ? 'Save changes' : `Save ${unitLabel}`}
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
 
@@ -693,7 +1209,11 @@ export default function AdminActivitiesPage() {
         </TabsList>
         {TABS.map((tab) => (
           <TabsContent key={tab.value} value={tab.value} className="mt-6">
-            <AdminActivityTab type={tab.value} unitLabel={tab.unit} />
+            <AdminActivityTab
+              type={tab.value}
+              unitLabel={tab.unit}
+              unitPlural={tab.units}
+            />
           </TabsContent>
         ))}
       </Tabs>

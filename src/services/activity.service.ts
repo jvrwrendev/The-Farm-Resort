@@ -365,6 +365,22 @@ export async function listActivityBookings(type?: ActivityType): Promise<Activit
   return (data ?? []).map((r) => rowToBooking(r as ActivityBookingRow))
 }
 
+export async function listActivityBookingsForRange(
+  startDate: string,
+  endDate: string,
+): Promise<ActivityBooking[]> {
+  const { data, error } = await supabase
+    .from('activity_bookings')
+    .select('*, activity:activities(*), unit:activity_units(*)')
+    .gte('booking_date', startDate)
+    .lte('booking_date', endDate)
+    .in('status', ['pending', 'confirmed', 'completed'])
+    .order('booking_date', { ascending: true })
+    .order('start_time', { ascending: true })
+  if (error) throw new Error(mapPostgrestError(error))
+  return (data ?? []).map((r) => rowToBooking(r as ActivityBookingRow))
+}
+
 export async function listBookingsForActivityDate(
   activityId: string,
   bookingDate: string,

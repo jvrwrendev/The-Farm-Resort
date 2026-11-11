@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { updatePickleballBookingStatus } from './service'
+import { updatePickleballBookingStatus } from '@/services/pickleballBooking.service'
 import type { PickleballBooking, PickleballBookingStatus } from './types'
 import { formatStatus } from '@/lib/utils'
 

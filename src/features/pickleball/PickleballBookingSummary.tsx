@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { CalendarDays, Clock, MapPin, ShieldCheck, Users } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { PickleballCourt } from './types'
-import { formatBookingDate, formatTimeRange } from './utils'
+import { formatBookingDate, formatTimeRange, getPickleballRate } from './utils'
 import { formatCurrency } from '@/lib/utils'
 
 interface PickleballBookingSummaryProps {
@@ -86,7 +86,8 @@ export function PickleballBookingSummary({
               <p className="text-sm text-muted-foreground">Estimated total</p>
               {court && durationHours > 0 && (
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {formatCurrency(court.hourlyRate)} × {durationHours} hour{durationHours === 1 ? '' : 's'}
+                  {formatCurrency(getPickleballRate(court, date))} × {durationHours} hour
+                  {durationHours === 1 ? '' : 's'}
                 </p>
               )}
             </div>

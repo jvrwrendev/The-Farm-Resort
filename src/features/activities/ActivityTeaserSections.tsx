@@ -1,22 +1,35 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { ArrowRight, CalendarCheck2, CircleDot, Clock, Gauge, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { listActivities } from '@/services/activity.service'
+import { listActivities, listActivityUnits } from '@/services/activity.service'
 import type { Activity, ActivityType } from './types'
 import { formatCurrency } from '@/lib/utils'
 import { formatTimeLabel } from './utils'
+import { scrollToLandingSection } from '@/lib/scroll'
 
-function ActivityVisual({ activity, accent }: { activity?: Activity; accent: string }) {
-  if (activity?.imageUrl) {
+function ActivityVisual({
+  activity,
+  imageUrl,
+  accent,
+}: {
+  activity?: Activity
+  imageUrl?: string
+  accent: string
+}) {
+  const [failed, setFailed] = useState(false)
+
+  if (imageUrl && !failed) {
     return (
       <img
-        src={activity.imageUrl}
-        alt={activity.name}
+        src={imageUrl}
+        alt={activity?.name ?? 'Activity'}
         className="aspect-[4/3] w-full object-cover"
         loading="lazy"
+        onError={() => setFailed(true)}
       />
     )
   }
@@ -55,24 +68,41 @@ function ActivitySection({
     queryFn: () => listActivities(type),
   })
 
+  const { data: units = [] } = useQuery({
+    queryKey: ['activity-units', type],
+    queryFn: () => listActivityUnits(type),
+  })
+
   const activity = activities[0]
   const name = activity?.name ?? fallbackTitle
   const description = activity?.description || fallbackDescription
-  const rate = activity?.weekdayRate ?? activity?.hourlyRate ?? 0
+  const unitImage = units.find((unit) => unit.imageUrl)?.imageUrl
+  const imageUrl = activity?.imageUrl || unitImage
+
+  const rates = units.map((unit) => unit.weekdayRate).filter((rate) => rate > 0)
+  const rate =
+    rates.length > 0
+      ? Math.min(...rates)
+      : (activity?.weekdayRate ?? activity?.hourlyRate ?? 0)
+
+  const unitCount = units.length > 0 ? units.length : (activity?.inventoryCount ?? 0)
 
   return (
     <section id={type} className="scroll-mt-28 px-4 py-20 sm:px-6 lg:py-24">
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
-        <motion.div
+        <motion.button
+          type="button"
+          onClick={() => scrollToLandingSection(type)}
+          aria-label={`Scroll to the ${title} section`}
           initial={{ opacity: 0, x: reverse ? 20 : -20 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className={`relative overflow-hidden rounded-2xl ${reverse ? 'lg:order-2' : ''}`}
+          className={`group relative block w-full cursor-pointer overflow-hidden rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${reverse ? 'lg:order-2' : ''}`}
         >
-          <ActivityVisual activity={activity} accent={accent} />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 rounded-xl border border-white/20 bg-black/40 px-3 py-2 backdrop-blur">
+          <ActivityVisual activity={activity} imageUrl={imageUrl} accent={accent} />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl border border-white/20 bg-black/40 px-3 py-2 backdrop-blur">
             <p className="text-xs font-semibold text-white">
               {activity ? name : isLoading ? 'Loading…' : 'Available soon'}
             </p>
@@ -82,7 +112,7 @@ function ActivitySection({
                 : 'Ask the front desk for schedules'}
             </p>
           </div>
-        </motion.div>
+        </motion.button>
 
         <motion.div
           initial={{ opacity: 0, x: reverse ? -20 : 20 }}
@@ -98,12 +128,12 @@ function ActivitySection({
           </p>
 
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-medium">
-            {activity && (
+            {activity && unitCount > 0 && (
               <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5">
-                <Users className="h-3.5 w-3.5 text-primary" /> {activity.inventoryCount}{' '}
+                <Users className="h-3.5 w-3.5 text-primary" /> {unitCount}{' '}
                 {type === 'atv'
-                  ? `ATV${activity.inventoryCount === 1 ? '' : 's'}`
-                  : `table${activity.inventoryCount === 1 ? '' : 's'}`}
+                  ? `ATV${unitCount === 1 ? '' : 's'}`
+                  : `table${unitCount === 1 ? '' : 's'}`}
               </span>
             )}
             {activity && (

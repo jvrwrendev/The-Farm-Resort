@@ -32,11 +32,11 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PageHeading, StatCard, StatusBadge } from '@/features/admin/components'
-import { PICKLEBALL_COURTS } from '../mockData'
-import { getPickleballBookings, getPickleballStats } from '../service'
+import { getPickleballStats } from '../service'
+import { listPickleballBookings } from '@/services/pickleballBooking.service'
 import type { PickleballBookingStatus } from '../types'
-import { usePickleballStorageSync } from '../usePickleballStorageSync'
-import { formatBookingDate, formatTimeLabel, getCourt } from '../utils'
+import { usePickleballCourts } from '../usePickleballCourts'
+import { formatBookingDate, formatTimeLabel } from '../utils'
 import { PickleballBookingActions } from './PickleballBookingActions'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -56,7 +56,7 @@ export default function AdminPickleballPage() {
   const [courtId, setCourtId] = useState('all')
   const [date, setDate] = useState('')
 
-  usePickleballStorageSync()
+  const courts = usePickleballCourts(true)
 
   const {
     data: bookings = [],
@@ -65,7 +65,7 @@ export default function AdminPickleballPage() {
     refetch,
   } = useQuery({
     queryKey: queryKeys.pickleballBookings(),
-    queryFn: () => getPickleballBookings(),
+    queryFn: () => listPickleballBookings(),
     staleTime: 0,
   })
 
@@ -100,7 +100,7 @@ export default function AdminPickleballPage() {
     <div className="space-y-6">
       <PageHeading
         title="Pickleball Bookings"
-        description="Review, approve, and manage mock pickleball court reservations stored in this browser."
+        description="Review, approve, and manage pickleball court reservations."
         action={
           <Button variant="outline" asChild>
             <Link to="/pickleball" target="_blank" rel="noreferrer">
@@ -171,7 +171,7 @@ export default function AdminPickleballPage() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All courts</SelectItem>
-                {PICKLEBALL_COURTS.map((court) => (
+                {courts.map((court) => (
                   <SelectItem key={court.id} value={court.id}>
                     {court.name}
                   </SelectItem>
@@ -246,7 +246,7 @@ export default function AdminPickleballPage() {
                 </TableRow>
               ) : (
                 filteredBookings.map((booking) => {
-                  const court = getCourt(booking.courtId)
+                  const court = courts.find((item) => item.id === booking.courtId)
                   return (
                     <TableRow key={booking.id}>
                       <TableCell className="font-mono text-xs font-medium">

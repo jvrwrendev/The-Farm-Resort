@@ -1,5 +1,5 @@
 import { format, parseISO } from 'date-fns'
-import { PICKLEBALL_COURTS, PICKLEBALL_SETTINGS } from './mockData'
+import { PICKLEBALL_SETTINGS } from './mockData'
 import type { PickleballCourt, PickleballSettings, PickleballTimeSlot } from './types'
 
 export function timeToMinutes(time: string): number {
@@ -63,18 +63,6 @@ export function isSlotPast(date: string, startTime: string, now = new Date()): b
   return timeToMinutes(startTime) <= currentMinutes
 }
 
-export function generateBookingReference(existingReferences: Set<string>): string {
-  const datePart = format(new Date(), 'yyyyMMdd')
-  let reference = ''
-
-  do {
-    const random = Math.random().toString(36).slice(2, 8).toUpperCase()
-    reference = `PB-${datePart}-${random}`
-  } while (existingReferences.has(reference))
-
-  return reference
-}
-
 export function formatBookingDate(date?: string | null, pattern = 'EEE, MMM d, yyyy'): string {
   if (!date) return '—'
   try {
@@ -84,13 +72,18 @@ export function formatBookingDate(date?: string | null, pattern = 'EEE, MMM d, y
   }
 }
 
-export function getCourt(courtId?: string | null): PickleballCourt | undefined {
-  if (!courtId) return undefined
-  return PICKLEBALL_COURTS.find((court) => court.id === courtId)
-}
+/** Weekday/weekend rate for a court on a given date, matching the server. */
+export function getPickleballRate(court?: PickleballCourt, date?: string): number {
+  if (!court) return 0
+  if (!date) return court.hourlyRate
 
-export function getCourtName(courtId?: string | null): string {
-  return getCourt(courtId)?.name ?? 'Pickleball court'
+  try {
+    const day = parseISO(date).getDay()
+    const rate = day === 0 || day === 6 ? court.weekendRate : court.weekdayRate
+    return rate > 0 ? rate : court.hourlyRate
+  } catch {
+    return court.hourlyRate
+  }
 }
 
 export function getAvailableEndTimes(

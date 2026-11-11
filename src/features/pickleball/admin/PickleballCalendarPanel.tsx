@@ -31,10 +31,11 @@ import {
   CALENDAR_STATUS_ORDER,
   type CalendarStatus,
 } from '@/features/admin/calendarStatus'
-import { PICKLEBALL_BLOCKING_STATUSES, getPickleballBookings } from '../service'
+import { PICKLEBALL_BLOCKING_STATUSES } from '../service'
+import { listPickleballBookingsForRange } from '@/services/pickleballBooking.service'
 import type { PickleballBooking } from '../types'
-import { usePickleballStorageSync } from '../usePickleballStorageSync'
-import { formatTimeLabel, getCourt } from '../utils'
+import { usePickleballCourts } from '../usePickleballCourts'
+import { formatTimeLabel } from '../utils'
 import { PickleballBookingActions } from './PickleballBookingActions'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn, formatCurrency } from '@/lib/utils'
@@ -45,8 +46,8 @@ function compactTime(time: string): string {
   return formatTimeLabel(time).replace(':00 ', ' ')
 }
 
-function courtShortName(courtId: string): string {
-  return getCourt(courtId)?.name.replace(/\s*Court$/i, '') ?? 'Court'
+function shortCourtName(name?: string): string {
+  return name?.replace(/\s*Court$/i, '') ?? 'Court'
 }
 
 interface PickleballCalendarPanelProps {
@@ -63,12 +64,16 @@ export function PickleballCalendarPanel({
   onSelectDate,
 }: PickleballCalendarPanelProps) {
   const navigate = useNavigate()
+  const courts = usePickleballCourts(true)
+  const courtLabel = (courtId: string) =>
+    shortCourtName(courts.find((court) => court.id === courtId)?.name)
 
-  usePickleballStorageSync()
+  const gridStart = format(startOfWeek(startOfMonth(currentMonth)), 'yyyy-MM-dd')
+  const gridEnd = format(endOfWeek(endOfMonth(currentMonth)), 'yyyy-MM-dd')
 
   const { data: bookings = [], isLoading } = useQuery({
-    queryKey: queryKeys.pickleballBookings({ scope: 'calendar' }),
-    queryFn: () => getPickleballBookings(),
+    queryKey: queryKeys.pickleballBookings({ scope: 'calendar', from: gridStart, to: gridEnd }),
+    queryFn: () => listPickleballBookingsForRange(gridStart, gridEnd),
     staleTime: 0,
   })
 
@@ -215,7 +220,7 @@ export function PickleballCalendarPanel({
                           }}
                           title={`${booking.customerName} · ${formatTimeLabel(
                             booking.startTime,
-                          )}–${formatTimeLabel(booking.endTime)} · ${courtShortName(
+                          )}–${formatTimeLabel(booking.endTime)} · ${courtLabel(
                             booking.courtId,
                           )} Court`}
                           className={cn(
@@ -224,7 +229,7 @@ export function PickleballCalendarPanel({
                           )}
                         >
                           <span className="font-semibold">{compactTime(booking.startTime)}</span>
-                          <span className="truncate">{courtShortName(booking.courtId)}</span>
+                          <span className="truncate">{courtLabel(booking.courtId)}</span>
                         </button>
                       ))}
                       {dayBookings.length > 2 && (
@@ -271,7 +276,7 @@ export function PickleballCalendarPanel({
               </div>
             ) : (
               selectedDayBookings.map((booking) => {
-                const court = getCourt(booking.courtId)
+                const court = courts.find((item) => item.id === booking.courtId)
 
                 return (
                   <div key={booking.id} className="rounded-xl border bg-card p-4">

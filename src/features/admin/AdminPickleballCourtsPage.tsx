@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
+import { listPickleballBookings } from '@/services/pickleballBooking.service'
 import {
   listAllPickleballCourts,
   createPickleballCourt,
@@ -168,12 +169,20 @@ export default function AdminPickleballCourtsPage() {
   const handleDelete = async () => {
     if (!deleteTarget) return
     try {
+      const bookings = await listPickleballBookings()
+      if (bookings.some((booking) => booking.courtId === deleteTarget.id)) {
+        toast.error(
+          'This court has existing reservations and cannot be deleted. Deactivate it instead.',
+        )
+        setDeleteTarget(null)
+        return
+      }
       await deletePickleballCourt(deleteTarget.id)
       setCourts((prev) => prev.filter((c) => c.id !== deleteTarget.id))
       toast.success('Court deleted.')
       setDeleteTarget(null)
-    } catch {
-      toast.error('Failed to delete court.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to delete court.')
     }
   }
 

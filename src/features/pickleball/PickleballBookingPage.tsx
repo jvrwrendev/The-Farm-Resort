@@ -33,10 +33,10 @@ import { PickleballAvailability } from './PickleballAvailability'
 import { PickleballBookingSummary } from './PickleballBookingSummary'
 import { PICKLEBALL_SETTINGS } from './mockData'
 import { pickleballBookingSchema, type PickleballBookingFormValues } from './schema'
-import { createPickleballBooking, getPickleballAvailability, isPickleballRangeAvailable } from './service'
+import { createPickleballBooking } from '@/services/pickleballBooking.service'
+import { getPickleballAvailability, isPickleballRangeAvailable } from './service'
 import { listPickleballCourts } from '@/services/pickleballCourt.service'
 import type { PickleballTimeSlot } from './types'
-import { usePickleballStorageSync } from './usePickleballStorageSync'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn, formatCurrency } from '@/lib/utils'
 import {
@@ -45,6 +45,7 @@ import {
   formatTimeRange,
   getAvailableEndTimes,
   getDurationHours,
+  getPickleballRate,
 } from './utils'
 
 const today = startOfDay(new Date())
@@ -53,7 +54,7 @@ const defaultBookingDate = format(addDays(today, 1), 'yyyy-MM-dd')
 const EMPTY_SLOTS: PickleballTimeSlot[] = []
 
 export default function PickleballBookingPage() {
-  const { data: courts = [] } = useQuery({ queryKey: ['pickleball-courts'], queryFn: listPickleballCourts })
+  const { data: courts = [] } = useQuery({ queryKey: queryKeys.pickleballCourts, queryFn: listPickleballCourts })
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
@@ -67,8 +68,6 @@ export default function PickleballBookingPage() {
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewValues, setReviewValues] = useState<PickleballBookingFormValues | null>(null)
   const justBookedRef = useRef(false)
-
-  usePickleballStorageSync()
 
   const {
     register,
@@ -99,11 +98,17 @@ export default function PickleballBookingPage() {
 
   const court = courts.find((c) => c.id === courtId)
   const durationHours = getDurationHours(startTime, endTime)
-  const total = (court?.hourlyRate ?? 0) * durationHours
+  const total = getPickleballRate(court, bookingDate) * durationHours
+
+  useEffect(() => {
+    if (!courtId && initialCourtId) {
+      setValue('courtId', initialCourtId, { shouldValidate: true })
+    }
+  }, [courtId, initialCourtId, setValue])
 
   const availabilityQuery = useQuery({
     queryKey: queryKeys.pickleballAvailability(courtId, bookingDate),
-    queryFn: () => getPickleballAvailability(courtId, bookingDate),
+    queryFn: () => getPickleballAvailability(court, bookingDate),
     enabled: Boolean(courtId && bookingDate),
     staleTime: 0,
   })
@@ -174,21 +179,21 @@ export default function PickleballBookingPage() {
     setValue('endTime', options[0]?.value ?? '', { shouldValidate: true, shouldDirty: true })
   }
 
-  const handleReview = (values: PickleballBookingFormValues) => {
+  const handleReview = async (values: PickleballBookingFormValues) => {
     const selectedCourt = courts.find((c) => c.id === values.courtId)
     if (!selectedCourt) {
       toast.error('Please select a valid court.')
       return
     }
 
-    if (
-      !isPickleballRangeAvailable(
-        values.courtId,
-        values.bookingDate,
-        values.startTime,
-        values.endTime,
-      )
-    ) {
+    const available = await isPickleballRangeAvailable(
+      values.courtId,
+      values.bookingDate,
+      values.startTime,
+      values.endTime,
+    )
+
+    if (!available) {
       toast.error('That time slot is no longer available. Please choose another time.')
       availabilityQuery.refetch()
       return
@@ -207,7 +212,8 @@ export default function PickleballBookingPage() {
   const reviewDuration = reviewValues
     ? getDurationHours(reviewValues.startTime, reviewValues.endTime)
     : 0
-  const reviewTotal = (reviewCourt?.hourlyRate ?? 0) * reviewDuration
+  const reviewTotal =
+    getPickleballRate(reviewCourt, reviewValues?.bookingDate) * reviewDuration
 
   return (
     <PublicLayout>

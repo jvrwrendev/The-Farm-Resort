@@ -4,22 +4,32 @@ import { ArrowRight, CalendarCheck2, Clock, Trophy, Users } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import picklebg from '@/assets/picklebg.jpeg'
-import { PICKLEBALL_COURTS, PICKLEBALL_SETTINGS } from './mockData'
+import { PICKLEBALL_SETTINGS } from './mockData'
+import { usePickleballCourts } from './usePickleballCourts'
 import { formatCurrency } from '@/lib/utils'
 import { formatTimeLabel } from './utils'
+import { scrollToLandingSection } from '@/lib/scroll'
 
 export function PickleballTeaserSection() {
-  const lowestRate = Math.min(...PICKLEBALL_COURTS.map((court) => court.hourlyRate))
+  const courts = usePickleballCourts()
+  const lowestRate = courts.length
+    ? Math.min(...courts.map((court) => court.weekdayRate || court.hourlyRate))
+    : 0
+  const courtCount = courts.length || 3
+  const courtNames = courts.map((court) => court.name).join(', ')
 
   return (
     <section id="pickleball" className="scroll-mt-28 bg-primary px-4 py-20 text-primary-foreground sm:px-6 lg:py-24">
       <div className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-10 lg:grid-cols-2 lg:gap-16">
-        <motion.div
+        <motion.button
+          type="button"
+          onClick={() => scrollToLandingSection('pickleball')}
+          aria-label="Scroll to the Pickleball section"
           initial={{ opacity: 0, x: -20 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           transition={{ duration: 0.6 }}
-          className="relative overflow-hidden rounded-2xl"
+          className="group relative block w-full cursor-pointer overflow-hidden rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
         >
           <img
             src={picklebg}
@@ -27,12 +37,14 @@ export function PickleballTeaserSection() {
             className="aspect-[4/3] w-full object-cover"
             loading="lazy"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 rounded-xl border border-white/20 bg-black/40 px-3 py-2 backdrop-blur">
-            <p className="text-xs font-semibold text-white">Three courts · Open daily</p>
-            <p className="mt-0.5 text-[11px] text-white/70">Garden, Center, and Covered</p>
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl border border-white/20 bg-black/40 px-3 py-2 backdrop-blur">
+            <p className="text-xs font-semibold text-white">{courtCount} courts · Open daily</p>
+            <p className="mt-0.5 text-[11px] text-white/70">
+              {courtNames || 'Garden, Center, and Covered'}
+            </p>
           </div>
-        </motion.div>
+        </motion.button>
 
         <motion.div
           initial={{ opacity: 0, x: 20 }}
@@ -53,7 +65,7 @@ export function PickleballTeaserSection() {
 
           <div className="mt-6 flex flex-wrap gap-2 text-xs font-medium">
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-1.5">
-              <Trophy className="h-3.5 w-3.5" /> 3 courts
+              <Trophy className="h-3.5 w-3.5" /> {courtCount} courts
             </span>
             <span className="inline-flex items-center gap-1.5 rounded-full border border-primary-foreground/20 bg-primary-foreground/10 px-3 py-1.5">
               <Users className="h-3.5 w-3.5" /> Up to 4 per court

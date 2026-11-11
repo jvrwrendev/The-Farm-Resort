@@ -316,6 +316,24 @@ export default function ActivityBookingPage({
               Select your preferred {meta.unit}, pick a time, and we’ll prepare it for your visit.
               No online payment is required.
             </p>
+            {activity.imageUrl && (
+              <Link
+                to={`/#${activityType}`}
+                aria-label={`View ${meta.title} on the landing page`}
+                className="group relative mx-auto mt-6 block h-28 w-full max-w-sm overflow-hidden rounded-2xl border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                <img
+                  src={activity.imageUrl}
+                  alt={activity.name}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  loading="lazy"
+                />
+                <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+                <span className="pointer-events-none absolute bottom-2 left-3 text-[11px] font-medium text-white">
+                  View on the landing page
+                </span>
+              </Link>
+            )}
           </div>
         </div>
 

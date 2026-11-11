@@ -224,12 +224,18 @@ export default function PickleballPage() {
                 <Card className="flex h-full flex-col overflow-hidden">
                   <div className="relative aspect-[16/10] overflow-hidden bg-muted">
                     {court.imageUrl ? (
-                      <img
-                        src={court.imageUrl}
-                        alt={`${court.name} at The Farm`}
-                        className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
-                        loading="lazy"
-                      />
+                      <Link
+                        to="/#pickleball"
+                        aria-label="View Pickleball on the landing page"
+                        className="block h-full w-full cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                      >
+                        <img
+                          src={court.imageUrl}
+                          alt={`${court.name} at The Farm`}
+                          className="h-full w-full object-cover transition-transform duration-500 hover:scale-105"
+                          loading="lazy"
+                        />
+                      </Link>
                     ) : (
                       <div className="flex h-full w-full items-center justify-center bg-muted text-muted-foreground">
                         <span className="text-sm">No image</span>

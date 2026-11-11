@@ -22,9 +22,9 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/features/admin/components'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
-import { getPickleballBookingByReference } from '../service'
-import { usePickleballStorageSync } from '../usePickleballStorageSync'
-import { formatBookingDate, formatTimeLabel, getCourt } from '../utils'
+import { getPickleballBookingByReference } from '@/services/pickleballBooking.service'
+import { usePickleballCourts } from '../usePickleballCourts'
+import { formatBookingDate, formatTimeLabel } from '../utils'
 import { PickleballBookingActions } from './PickleballBookingActions'
 
 interface PickleballDetailsLocationState {
@@ -64,7 +64,7 @@ export default function AdminPickleballDetailsPage() {
     ? 'Back to calendar'
     : 'Back to pickleball bookings'
 
-  usePickleballStorageSync()
+  const courts = usePickleballCourts(true)
 
   const { data: booking, isLoading } = useQuery({
     queryKey: queryKeys.pickleballBooking(reference ?? ''),
@@ -108,7 +108,7 @@ export default function AdminPickleballDetailsPage() {
     )
   }
 
-  const court = getCourt(booking.courtId)
+  const court = courts.find((item) => item.id === booking.courtId)
   const courtName = court?.name ?? 'Pickleball court'
   const courtType = court?.isCovered ? 'Covered court' : 'Outdoor court'
 

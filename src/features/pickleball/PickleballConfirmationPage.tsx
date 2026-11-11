@@ -22,10 +22,10 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { downloadPickleballSummaryPdf } from './export'
-import { getPickleballBookingByReference } from './service'
+import { getPickleballBookingByReference } from '@/services/pickleballBooking.service'
 import type { PickleballBookingStatus } from './types'
-import { usePickleballStorageSync } from './usePickleballStorageSync'
-import { formatBookingDate, formatTimeLabel, getCourt } from './utils'
+import { usePickleballCourts } from './usePickleballCourts'
+import { formatBookingDate, formatTimeLabel } from './utils'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
 
@@ -73,15 +73,15 @@ function DetailRow({
 export default function PickleballConfirmationPage() {
   const { reference = '' } = useParams<{ reference: string }>()
   const [downloading, setDownloading] = useState(false)
-  usePickleballStorageSync()
+  const courts = usePickleballCourts()
 
   const { data: booking, isLoading } = useQuery({
     queryKey: queryKeys.pickleballBooking(reference),
-    queryFn: () => getPickleballBookingByReference(reference) ?? null,
+    queryFn: () => getPickleballBookingByReference(reference),
     enabled: Boolean(reference),
   })
 
-  const court = booking ? getCourt(booking.courtId) : undefined
+  const court = booking ? courts.find((item) => item.id === booking.courtId) : undefined
 
   const handleDownload = async () => {
     if (!booking || !court) return

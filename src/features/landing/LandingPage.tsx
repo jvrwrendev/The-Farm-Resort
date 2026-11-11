@@ -1,3 +1,5 @@
+import { useEffect } from 'react'
+import { useLocation } from 'react-router-dom'
 import { PublicLayout } from '@/components/layout/Navbar'
 import { HeroSection, AboutSection } from '@/features/landing/HeroSection'
 import { RoomsSection } from '@/features/landing/RoomsSection'
@@ -6,8 +8,22 @@ import { AvailabilitySection } from '@/features/landing/AvailabilitySection'
 import { ChatbotWidget } from '@/features/landing/ChatbotWidget'
 import { PickleballTeaserSection } from '@/features/pickleball/PickleballTeaserSection'
 import { ActivityTeaserSections } from '@/features/activities/ActivityTeaserSections'
+import { scrollToLandingSection } from '@/lib/scroll'
 
 export default function LandingPage() {
+  const location = useLocation()
+
+  useEffect(() => {
+    if (!location.hash) return
+
+    const sectionId = location.hash.replace('#', '')
+    const timer = window.setTimeout(() => {
+      scrollToLandingSection(sectionId)
+    }, 150)
+
+    return () => window.clearTimeout(timer)
+  }, [location.hash, location.key])
+
   return (
     <PublicLayout>
       <HeroSection />
