@@ -12,6 +12,7 @@ import {
   Loader2,
   Pencil,
   Plus,
+  Receipt,
   Search,
   Trash2,
   Upload,
@@ -51,7 +52,9 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PageHeading, StatCard, StatusBadge } from '@/features/admin/components'
+import { PaymentDetailsCard, PaymentStatusBadge } from '@/features/admin/PaymentDetailsCard'
 import type {
+  ActivityBooking,
   ActivityBookingStatus,
   ActivityType,
   ActivityUnit,
@@ -209,6 +212,7 @@ function AdminActivityTab({
 
   const [statusFilter, setStatusFilter] = useState<ActivityBookingStatus | 'all'>('all')
   const [search, setSearch] = useState('')
+  const [paymentBooking, setPaymentBooking] = useState<ActivityBooking | null>(null)
 
   useEffect(() => {
     if (!activity) return
@@ -807,14 +811,15 @@ function AdminActivityTab({
                 <TableHead className="hidden sm:table-cell">Time</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead>Payment</TableHead>
                 <TableHead className="w-[1%] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {bookingsLoading ? (
-                <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">Loading reservations…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="py-10 text-center text-muted-foreground">Loading reservations…</TableCell></TableRow>
               ) : filteredBookings.length === 0 ? (
-                <TableRow><TableCell colSpan={8} className="py-10 text-center text-muted-foreground">No reservations match your filters.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="py-10 text-center text-muted-foreground">No reservations match your filters.</TableCell></TableRow>
               ) : (
                 filteredBookings.map((booking) => (
                   <TableRow key={booking.id}>
@@ -834,8 +839,10 @@ function AdminActivityTab({
                     </TableCell>
                     <TableCell>{formatCurrency(booking.totalAmount)}</TableCell>
                     <TableCell><StatusBadge status={booking.status} /></TableCell>
+                    <TableCell><PaymentStatusBadge status={booking.paymentStatus} /></TableCell>
                     <TableCell className="w-[1%] text-right">
                       <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="sm" title="View payment details" onClick={() => setPaymentBooking(booking)}><Receipt className="h-4 w-4 text-primary" /></Button>
                         {booking.status === 'pending' && (
                           <>
                             <Button variant="ghost" size="sm" title="Approve" onClick={() => handleBookingStatus(booking.id, 'confirmed')}><CheckCircle2 className="h-4 w-4 text-emerald-600" /></Button>
@@ -1183,6 +1190,26 @@ function AdminActivityTab({
             <Button variant="outline" onClick={() => setDeleteUnitTarget(null)}>Cancel</Button>
             <Button variant="destructive" onClick={handleDeleteUnit}>Delete</Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!paymentBooking} onOpenChange={(open) => !open && setPaymentBooking(null)}>
+        <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-display text-lg">Payment details</DialogTitle>
+            <DialogDescription>
+              {paymentBooking?.reference} · {paymentBooking?.customerName}
+            </DialogDescription>
+          </DialogHeader>
+          {paymentBooking && (
+            <PaymentDetailsCard
+              bookingType={paymentBooking.activityType}
+              reference={paymentBooking.reference}
+              totalAmount={paymentBooking.totalAmount}
+              fallbackStatus={paymentBooking.paymentStatus}
+              className="border-0 shadow-none"
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>

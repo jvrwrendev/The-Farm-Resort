@@ -97,7 +97,7 @@ export function PickleballBookingSummary({
 
         <div className="flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-          No payment is taken online. Your reservation is held as pending until our team confirms it.
+          A 50% GCash down payment is required after submitting to secure your reservation.
         </div>
 
         {action}

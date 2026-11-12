@@ -4,7 +4,6 @@ import { format, parseISO } from 'date-fns'
 import {
   ArrowLeft,
   CalendarDays,
-  CircleDollarSign,
   Clock,
   Mail,
   MapPin,
@@ -20,6 +19,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/features/admin/components'
+import { PaymentDetailsCard } from '@/features/admin/PaymentDetailsCard'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
 import { getPickleballBookingByReference } from '@/services/pickleballBooking.service'
@@ -203,32 +203,18 @@ export default function AdminPickleballDetailsPage() {
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-display text-lg">
-                <CircleDollarSign className="h-4 w-4 text-primary" /> Payment summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {formatCurrency(booking.hourlyRate)} × {booking.durationHours} hour
-                  {booking.durationHours === 1 ? '' : 's'}
-                </span>
-                <span className="font-medium">{formatCurrency(booking.totalAmount)}</span>
-              </div>
-              <div className="flex items-end justify-between border-t pt-4">
-                <span className="font-medium">Total amount</span>
-                <span className="font-display text-2xl font-bold text-primary">
-                  {formatCurrency(booking.totalAmount)}
-                </span>
-              </div>
-              <p className="rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                Mock booking — no payment is processed online. The full amount is settled at the
-                court desk.
-              </p>
-            </CardContent>
-          </Card>
+          <PaymentDetailsCard
+            bookingType="pickleball"
+            reference={booking.reference}
+            totalAmount={booking.totalAmount}
+            fallbackStatus={booking.paymentStatus}
+            lineItem={{
+              label: `${formatCurrency(booking.hourlyRate)} × ${booking.durationHours} hour${
+                booking.durationHours === 1 ? '' : 's'
+              }`,
+              amount: booking.totalAmount,
+            }}
+          />
 
           <Card>
             <CardHeader>

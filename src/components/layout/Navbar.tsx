@@ -2,7 +2,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { ChevronDown, CircleDot, Gauge, Menu, Trophy, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -26,6 +25,7 @@ const navItems: NavItem[] = [
   { type: 'link', href: '/#amenities', label: 'Amenities', sectionId: 'amenities' },
   { type: 'link', href: '/#gallery', label: 'Gallery', sectionId: 'gallery' },
   { type: 'link', href: '/#calendar', label: 'Availability', sectionId: 'calendar' },
+  { type: 'link', href: '/#booking-search', label: 'Find Your Reservation', sectionId: 'booking-search' },
   { type: 'link', href: '/#policies', label: 'Policies', sectionId: 'policies' },
   { type: 'link', href: '/#contact', label: 'Contact', sectionId: 'contact' },
 ]
@@ -46,6 +46,7 @@ const observedSectionIds = [
   'amenities',
   'gallery',
   'calendar',
+  'booking-search',
   'policies',
   'contact',
 ]
@@ -208,12 +209,6 @@ export function Navbar() {
           )}
 
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-            <ThemeToggle />
-            <Button variant="luxury" size="sm" asChild className="px-3 sm:px-4">
-              <Link to={isPickleballPage ? '/pickleball/book' : '/book'}>
-                {isPickleballPage ? 'Book a Court' : 'Book Now'}
-              </Link>
-            </Button>
             {showPublicNav && (
               <button
                 className="lg:hidden p-2"
@@ -356,7 +351,6 @@ export function Footer() {
             <h4 className="font-semibold mb-3">Quick Links</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li><a href="/#home" className="hover:text-foreground transition-colors">Home</a></li>
-              <li><Link to="/book" className="hover:text-foreground transition-colors">Book Now</Link></li>
               <li><a href="/#rooms" className="hover:text-foreground transition-colors">Accommodation</a></li>
               <li><Link to="/pickleball" className="hover:text-foreground transition-colors">Pickleball</Link></li>
               <li><a href="/#gallery" className="hover:text-foreground transition-colors">Gallery</a></li>
@@ -372,12 +366,15 @@ export function Footer() {
         </div>
         <div className="mt-8 flex flex-col items-center justify-between gap-3 border-t pt-8 text-sm text-muted-foreground sm:flex-row">
           <span>&copy; {new Date().getFullYear()} {BRAND_NAME}. All rights reserved.</span>
-          <Link
-            to={user ? '/admin/dashboard' : '/admin/login'}
-            className="text-muted-foreground transition-colors hover:text-foreground"
-          >
-            {user ? (isAdmin ? 'Admin Dashboard' : 'Dashboard') : 'Admin Sign In'}
-          </Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link
+              to={user ? '/admin/dashboard' : '/admin/login'}
+              className="text-muted-foreground transition-colors hover:text-foreground"
+            >
+              {user ? (isAdmin ? 'Admin Dashboard' : 'Dashboard') : 'Admin Sign In'}
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

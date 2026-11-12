@@ -4,7 +4,6 @@ import { format, parseISO } from 'date-fns'
 import {
   ArrowLeft,
   CalendarDays,
-  CircleDollarSign,
   Clock,
   Mail,
   MessageSquare,
@@ -18,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { BookingActions } from '@/features/admin/BookingActions'
 import { StatusBadge } from '@/features/admin/components'
+import { PaymentDetailsCard } from '@/features/admin/PaymentDetailsCard'
 import { getBookingById } from '@/services/admin.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { BOOKING_TYPE_LABELS } from '@/lib/constants'
@@ -162,30 +162,16 @@ export default function AdminBookingDetailsPage() {
         </div>
 
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-display text-lg">
-                <CircleDollarSign className="h-4 w-4 text-primary" /> Payment summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {formatCurrency(booking.pricePerNight)} × {booking.numberOfNights} night(s)
-                </span>
-                <span className="font-medium">{formatCurrency(booking.totalAmount)}</span>
-              </div>
-              <div className="flex items-end justify-between border-t pt-4">
-                <span className="font-medium">Total amount</span>
-                <span className="font-display text-2xl font-bold text-primary">
-                  {formatCurrency(booking.totalAmount)}
-                </span>
-              </div>
-              <p className="rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-                No payment is processed online. The full amount is settled on arrival.
-              </p>
-            </CardContent>
-          </Card>
+          <PaymentDetailsCard
+            bookingType="accommodation"
+            reference={booking.bookingReference}
+            totalAmount={booking.totalAmount}
+            fallbackStatus={booking.paymentStatus}
+            lineItem={{
+              label: `${formatCurrency(booking.pricePerNight)} × ${booking.numberOfNights} night(s)`,
+              amount: booking.totalAmount,
+            }}
+          />
 
           <Card>
             <CardHeader>

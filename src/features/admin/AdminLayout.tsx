@@ -7,6 +7,7 @@ import {
   CalendarDays,
   CalendarRange,
   ChevronRight,
+  CreditCard,
   Dices,
   LayoutDashboard,
   LogOut,
@@ -35,6 +36,7 @@ const NAV_SECTIONS = [
     label: 'Management',
     items: [
       { to: '/admin/bookings', label: 'Bookings', icon: CalendarDays },
+      { to: '/admin/payments', label: 'Payments', icon: CreditCard },
       { to: '/admin/pickleball', label: 'Pickleball', icon: Trophy },
       { to: '/admin/pickleball-courts', label: 'Pickleball Courts', icon: Trophy },
       { to: '/admin/activities', label: 'Activities', icon: Dices },

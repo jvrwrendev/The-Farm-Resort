@@ -1,11 +1,12 @@
 import { Link, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import {
   CalendarCheck2,
   CalendarDays,
   CheckCircle2,
   Clock,
+  CreditCard,
   Mail,
   Phone,
   Users,
@@ -16,6 +17,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getBookingByReference } from '@/services/booking.service'
+import { getPaymentForBooking } from '@/services/payment.service'
+import { PaymentCheckout } from '@/features/payment/PaymentCheckout'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
 
@@ -35,10 +38,17 @@ function DetailRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ c
 
 export default function BookingConfirmationPage() {
   const { reference = '' } = useParams()
+  const queryClient = useQueryClient()
 
   const { data: booking, isLoading } = useQuery({
     queryKey: queryKeys.bookingByReference(reference),
     queryFn: () => getBookingByReference(reference),
+    enabled: !!reference,
+  })
+
+  const { data: payment } = useQuery({
+    queryKey: ['payment', 'accommodation', reference],
+    queryFn: () => getPaymentForBooking('accommodation', reference),
     enabled: !!reference,
   })
 
@@ -106,27 +116,79 @@ export default function BookingConfirmationPage() {
                   </div>
                 )}
 
-                <div className="rounded-xl border bg-secondary/40 p-4">
+                <div className="rounded-xl border bg-secondary/40 p-4 space-y-2">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground">
                       {formatCurrency(booking.pricePerNight)} × {booking.numberOfNights} night(s)
                     </span>
                     <span className="font-medium">{formatCurrency(booking.totalAmount)}</span>
                   </div>
-                  <div className="mt-3 flex items-end justify-between border-t pt-3">
+                  <div className="flex items-end justify-between border-t pt-3">
                     <span className="font-medium">Total amount</span>
                     <span className="font-display text-2xl font-bold text-primary">
                       {formatCurrency(booking.totalAmount)}
                     </span>
                   </div>
+                  <div className="flex items-center justify-between text-sm border-t pt-2">
+                    <span className="text-muted-foreground">50% down payment</span>
+                    <span className="font-semibold">{formatCurrency(booking.totalAmount * 0.5)}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-muted-foreground">Remaining balance</span>
+                    <span className="font-semibold">{formatCurrency(booking.totalAmount - booking.totalAmount * 0.5)}</span>
+                  </div>
+                </div>
+
+                <div className="rounded-xl border p-4">
+                  <div className="flex items-center gap-2">
+                    <CreditCard className="h-4 w-4 text-primary" />
+                    <p className="font-medium">Payment status</p>
+                    <Badge
+                      variant={
+                        payment?.status === 'verified' || booking.paymentStatus === 'partially_paid' || booking.paymentStatus === 'paid'
+                          ? 'success'
+                          : payment?.status === 'rejected' || booking.paymentStatus === 'rejected'
+                            ? 'destructive'
+                            : 'warning'
+                      }
+                    >
+                      {payment?.status === 'verified'
+                        ? 'Partially paid (50% verified)'
+                        : payment?.status === 'rejected'
+                          ? 'Rejected — please resubmit'
+                          : payment?.status === 'pending_verification' || booking.paymentStatus === 'pending_verification'
+                            ? 'Pending verification'
+                            : 'Down payment required'}
+                    </Badge>
+                  </div>
+                  {payment?.status === 'verified' && (
+                    <p className="mt-2 text-sm text-muted-foreground">
+                      Your 50% down payment of {formatCurrency(payment.downPaymentAmount)} has been verified. Remaining balance: {formatCurrency(payment.remainingBalance)}.
+                    </p>
+                  )}
+                  {payment?.status === 'rejected' && payment.rejectionReason && (
+                    <p className="mt-2 text-sm text-destructive">Reason: {payment.rejectionReason}</p>
+                  )}
                 </div>
 
                 <p className="text-xs text-muted-foreground">
                   Please keep your booking reference. Our team will contact you shortly to confirm your
-                  reservation. No payment has been taken online.
+                  reservation.
                 </p>
               </CardContent>
             </Card>
+
+            {(!payment || payment.status !== 'verified') && (
+              <PaymentCheckout
+                bookingType="accommodation"
+                bookingReference={booking.bookingReference}
+                totalAmount={booking.totalAmount}
+                onSubmitted={() => {
+                  queryClient.invalidateQueries({ queryKey: ['payment', 'accommodation', reference] })
+                  queryClient.invalidateQueries({ queryKey: queryKeys.bookingByReference(reference) })
+                }}
+              />
+            )}
 
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button asChild>

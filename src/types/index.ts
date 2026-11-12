@@ -12,7 +12,7 @@
 
 export type AppRole = 'admin' | 'customer'
 export type BookingStatusDb = 'pending' | 'confirmed' | 'cancelled' | 'completed'
-export type PaymentStatusDb = 'unpaid' | 'paid' | 'partially_paid'
+export type PaymentStatusDb = 'unpaid' | 'pending_verification' | 'partially_paid' | 'paid' | 'rejected'
 export type DayPeriodDb = 'AM' | 'PM'
 /** How a reservation was created (channel / source). Mirrors the `booking_type` enum. */
 export type BookingTypeDb = 'online_booking' | 'walk_in' | 'contact_booking' | 'other_manual'
@@ -222,7 +222,7 @@ export interface Database {
 // ---------------------------------------------------------------------
 
 export type AdminBookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
-export type PaymentStatus = 'unpaid' | 'paid' | 'partially_paid'
+export type PaymentStatus = 'unpaid' | 'pending_verification' | 'partially_paid' | 'paid' | 'rejected'
 export type AccommodationStatus = 'available' | 'unavailable'
 
 export interface Profile {

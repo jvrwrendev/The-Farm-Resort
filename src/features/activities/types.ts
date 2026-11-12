@@ -4,6 +4,8 @@ export type ActivityBookingStatus = 'pending' | 'confirmed' | 'completed' | 'can
 
 export type ActivityUnitStatus = 'available' | 'maintenance'
 
+export type PaymentStatus = 'unpaid' | 'pending_verification' | 'partially_paid' | 'paid' | 'rejected'
+
 export interface Activity {
   id: string
   type: ActivityType
@@ -57,6 +59,7 @@ export interface ActivityBooking {
   hourlyRate: number
   totalAmount: number
   status: ActivityBookingStatus
+  paymentStatus: PaymentStatus
   notes: string
   createdAt: string
   updatedAt: string

@@ -21,6 +21,7 @@ interface PickleballBookingRow {
   hourly_rate: number
   total_amount: number
   status: PickleballBookingStatus
+  payment_status?: string | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -57,6 +58,7 @@ function rowToBooking(row: PickleballBookingRow): PickleballBooking {
     durationHours: Number(row.duration_hours),
     totalAmount: Number(row.total_amount),
     status: row.status,
+    paymentStatus: (row.payment_status as PickleballBooking['paymentStatus']) ?? 'unpaid',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

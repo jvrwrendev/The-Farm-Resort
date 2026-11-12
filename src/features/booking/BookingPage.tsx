@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm, type Resolver } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -24,6 +24,8 @@ import { Badge } from '@/components/ui/badge'
 import { DatePickerField } from '@/features/booking/DatePickerField'
 import { getAccommodation, getRoomId } from '@/services/accommodation.service'
 import { createBooking, isRangeAvailable } from '@/services/booking.service'
+import { PaymentCheckout } from '@/features/payment/PaymentCheckout'
+import type { AdminBooking } from '@/types'
 import { getCalendarEvents } from '@/services/resort.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn, formatCurrency, nightsBetween } from '@/lib/utils'
@@ -70,6 +72,8 @@ function PeriodToggle({
 export default function BookingPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+
+  const [createdBooking, setCreatedBooking] = useState<AdminBooking | null>(null)
 
   const { data: accommodation, isLoading } = useQuery({
     queryKey: queryKeys.accommodation,
@@ -143,8 +147,9 @@ export default function BookingPage() {
       queryClient.invalidateQueries({ queryKey: queryKeys.adminStats })
       queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
       queryClient.invalidateQueries({ queryKey: ['availability'] })
-      toast.success('Reservation submitted!')
-      navigate(`/book/confirmation/${booking.bookingReference}`)
+      toast.success('Reservation submitted! Please complete your down payment.')
+      setCreatedBooking(booking)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Unable to create booking.')
@@ -221,6 +226,30 @@ export default function BookingPage() {
     ],
     [checkIn, checkOut, checkInPeriod, checkOutPeriod, nights, totalGuests, adults, children, pricePerNight],
   )
+
+  if (createdBooking) {
+    return (
+      <PublicLayout>
+        <div className="mx-auto max-w-4xl px-4 pt-28 pb-20 sm:px-6 lg:px-8">
+          <div className="mx-auto mb-8 max-w-2xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              Step 2 of 2
+            </span>
+            <h1 className="font-display mt-4 text-3xl font-bold sm:text-4xl">Complete your down payment</h1>
+            <p className="mt-3 text-muted-foreground">
+              Your reservation <span className="font-mono font-semibold text-foreground">{createdBooking.bookingReference}</span> has been created. Pay 50% now to secure it.
+            </p>
+          </div>
+          <PaymentCheckout
+            bookingType="accommodation"
+            bookingReference={createdBooking.bookingReference}
+            totalAmount={createdBooking.totalAmount}
+            onSubmitted={() => navigate(`/book/confirmation/${createdBooking.bookingReference}`)}
+          />
+        </div>
+      </PublicLayout>
+    )
+  }
 
   return (
     <PublicLayout>
@@ -443,7 +472,7 @@ export default function BookingPage() {
                 </div>
                 <div className="flex items-start gap-2 rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                   <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                  No payment is taken online. Your reservation is reviewed and confirmed by our team.
+                  A 50% GCash down payment is required to secure your reservation after submitting.
                 </div>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <BadgeCheck className="h-4 w-4 text-primary" />

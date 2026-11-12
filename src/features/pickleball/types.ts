@@ -44,6 +44,8 @@ export interface PickleballFacility {
   icon: string
 }
 
+export type PaymentStatus = 'unpaid' | 'pending_verification' | 'partially_paid' | 'paid' | 'rejected'
+
 export interface PickleballBooking {
   id: string
   reference: string
@@ -60,6 +62,7 @@ export interface PickleballBooking {
   durationHours: number
   totalAmount: number
   status: PickleballBookingStatus
+  paymentStatus: PaymentStatus
   createdAt: string
   updatedAt: string
 }

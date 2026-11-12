@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import {
   ArrowLeft,
@@ -23,6 +23,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { downloadPickleballSummaryPdf } from './export'
 import { getPickleballBookingByReference } from '@/services/pickleballBooking.service'
+import { getPaymentForBooking } from '@/services/payment.service'
+import { PaymentCheckout } from '@/features/payment/PaymentCheckout'
 import type { PickleballBookingStatus } from './types'
 import { usePickleballCourts } from './usePickleballCourts'
 import { formatBookingDate, formatTimeLabel } from './utils'
@@ -74,10 +76,17 @@ export default function PickleballConfirmationPage() {
   const { reference = '' } = useParams<{ reference: string }>()
   const [downloading, setDownloading] = useState(false)
   const courts = usePickleballCourts()
+  const queryClient = useQueryClient()
 
   const { data: booking, isLoading } = useQuery({
     queryKey: queryKeys.pickleballBooking(reference),
     queryFn: () => getPickleballBookingByReference(reference),
+    enabled: Boolean(reference),
+  })
+
+  const { data: payment } = useQuery({
+    queryKey: ['payment', 'pickleball', reference],
+    queryFn: () => getPaymentForBooking('pickleball', reference),
     enabled: Boolean(reference),
   })
 
@@ -246,8 +255,7 @@ export default function PickleballConfirmationPage() {
                     </p>
                   </div>
                   <p className="mt-3 text-xs text-muted-foreground">
-                    No payment has been taken online. Please settle the court fee at the resort
-                    front desk or court desk.
+                    A 50% GCash down payment is required to secure this reservation. Check your payment status below.
                   </p>
                 </section>
 
@@ -261,6 +269,67 @@ export default function PickleballConfirmationPage() {
                 </section>
               </CardContent>
             </Card>
+
+            <Card className="mt-6">
+              <CardContent className="space-y-4 pt-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">Payment</span>
+                  <Badge
+                    variant={
+                      payment?.status === 'verified'
+                        ? 'success'
+                        : payment?.status === 'rejected'
+                          ? 'destructive'
+                          : 'warning'
+                    }
+                  >
+                    {payment?.status === 'verified'
+                      ? 'Partially paid (50% verified)'
+                      : payment?.status === 'rejected'
+                        ? 'Rejected — please resubmit'
+                        : payment?.status === 'pending_verification'
+                          ? 'Pending verification'
+                          : 'Down payment required'}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Total</p>
+                    <p className="font-semibold">{formatCurrency(booking.totalAmount)}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">50% down payment</p>
+                    <p className="font-semibold">{formatCurrency(booking.totalAmount * 0.5)}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Remaining balance</p>
+                    <p className="font-semibold">{formatCurrency(booking.totalAmount * 0.5)}</p>
+                  </div>
+                </div>
+                {payment?.status === 'verified' && (
+                  <p className="text-sm text-muted-foreground">
+                    Verified down payment: {formatCurrency(payment.downPaymentAmount)}. Remaining balance: {formatCurrency(payment.remainingBalance)}.
+                  </p>
+                )}
+                {payment?.status === 'rejected' && payment.rejectionReason && (
+                  <p className="text-sm text-destructive">Reason: {payment.rejectionReason}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {(!payment || payment.status !== 'verified') && (
+              <div className="mt-6">
+                <PaymentCheckout
+                  bookingType="pickleball"
+                  bookingReference={booking.reference}
+                  totalAmount={booking.totalAmount}
+                  onSubmitted={() => {
+                    queryClient.invalidateQueries({ queryKey: ['payment', 'pickleball', reference] })
+                    queryClient.invalidateQueries({ queryKey: queryKeys.pickleballBooking(reference) })
+                  }}
+                />
+              </div>
+            )}
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3 print:hidden">
               <Button variant="outline" onClick={() => window.print()}>

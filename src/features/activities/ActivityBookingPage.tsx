@@ -34,7 +34,8 @@ import {
   listActivityBookings,
   listActivityUnits,
 } from '@/services/activity.service'
-import type { ActivityType, ActivityUnit } from './types'
+import type { ActivityBooking, ActivityType, ActivityUnit } from './types'
+import { PaymentCheckout } from '@/features/payment/PaymentCheckout'
 import { activityBookingSchema, type ActivityBookingFormValues } from './schema'
 import {
   formatBookingDate,
@@ -106,6 +107,7 @@ export default function ActivityBookingPage({
 
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewValues, setReviewValues] = useState<ActivityBookingFormValues | null>(null)
+  const [createdBooking, setCreatedBooking] = useState<ActivityBooking | null>(null)
 
   const {
     register,
@@ -214,7 +216,9 @@ export default function ActivityBookingPage({
       queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
       queryClient.invalidateQueries({ queryKey: ['activity-day-bookings'] })
       toast.success(`Booking received · ${booking.reference}`)
-      navigate(`/${activityType}/confirmation/${booking.reference}`)
+      setReviewOpen(false)
+      setCreatedBooking(booking)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Unable to submit the booking.')
@@ -294,6 +298,30 @@ export default function ActivityBookingPage({
   const reviewRate = getUnitRate(reviewUnit, reviewValues?.bookingDate ?? bookingDate)
   const reviewTotal = reviewRate * (reviewValues?.durationHours ?? 0)
 
+  if (createdBooking) {
+    return (
+      <PublicLayout>
+        <div className="mx-auto max-w-4xl px-4 pb-20 pt-28 sm:px-6 lg:px-8">
+          <div className="mx-auto mb-8 max-w-2xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              Step 2 of 2
+            </span>
+            <h1 className="font-display mt-4 text-3xl font-bold sm:text-4xl">Complete your down payment</h1>
+            <p className="mt-3 text-muted-foreground">
+              Booking <span className="font-mono font-semibold text-foreground">{createdBooking.reference}</span> received. Pay 50% now to secure it.
+            </p>
+          </div>
+          <PaymentCheckout
+            bookingType={activityType}
+            bookingReference={createdBooking.reference}
+            totalAmount={createdBooking.totalAmount}
+            onSubmitted={() => navigate(`/${activityType}/confirmation/${createdBooking.reference}`)}
+          />
+        </div>
+      </PublicLayout>
+    )
+  }
+
   return (
     <PublicLayout>
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-28 sm:px-6 lg:px-8">
@@ -314,7 +342,7 @@ export default function ActivityBookingPage({
             </h1>
             <p className="mt-4 text-muted-foreground">
               Select your preferred {meta.unit}, pick a time, and we’ll prepare it for your visit.
-              No online payment is required.
+              A 50% GCash down payment is required to secure your reservation.
             </p>
             {activity.imageUrl && (
               <Link
@@ -678,7 +706,7 @@ export default function ActivityBookingPage({
                 </Card>
                 <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                   <ShieldCheck className="h-3.5 w-3.5 text-primary" />
-                  Your slot is held only after you confirm.
+                  A 50% GCash down payment is required after confirming.
                 </div>
               </div>
             </div>

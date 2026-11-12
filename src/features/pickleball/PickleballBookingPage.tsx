@@ -36,7 +36,8 @@ import { pickleballBookingSchema, type PickleballBookingFormValues } from './sch
 import { createPickleballBooking } from '@/services/pickleballBooking.service'
 import { getPickleballAvailability, isPickleballRangeAvailable } from './service'
 import { listPickleballCourts } from '@/services/pickleballCourt.service'
-import type { PickleballTimeSlot } from './types'
+import type { PickleballBooking, PickleballTimeSlot } from './types'
+import { PaymentCheckout } from '@/features/payment/PaymentCheckout'
 import { queryKeys } from '@/lib/queryKeys'
 import { cn, formatCurrency } from '@/lib/utils'
 import {
@@ -67,6 +68,7 @@ export default function PickleballBookingPage() {
 
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewValues, setReviewValues] = useState<PickleballBookingFormValues | null>(null)
+  const [createdBooking, setCreatedBooking] = useState<PickleballBooking | null>(null)
   const justBookedRef = useRef(false)
 
   const {
@@ -159,7 +161,9 @@ export default function PickleballBookingPage() {
       justBookedRef.current = true
       queryClient.invalidateQueries({ queryKey: ['pickleball'] })
       toast.success(`Court reserved · ${booking.reference}`)
-      navigate(`/pickleball/confirmation/${booking.reference}`)
+      setReviewOpen(false)
+      setCreatedBooking(booking)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Unable to reserve the court.')
@@ -215,6 +219,30 @@ export default function PickleballBookingPage() {
   const reviewTotal =
     getPickleballRate(reviewCourt, reviewValues?.bookingDate) * reviewDuration
 
+  if (createdBooking) {
+    return (
+      <PublicLayout>
+        <div className="mx-auto max-w-4xl px-4 pb-20 pt-28 sm:px-6 lg:px-8">
+          <div className="mx-auto mb-8 max-w-2xl text-center">
+            <span className="inline-flex items-center gap-2 rounded-full border border-primary/15 bg-primary/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+              Step 2 of 2
+            </span>
+            <h1 className="font-display mt-4 text-3xl font-bold sm:text-4xl">Complete your down payment</h1>
+            <p className="mt-3 text-muted-foreground">
+              Reservation <span className="font-mono font-semibold text-foreground">{createdBooking.reference}</span> created. Pay 50% now to secure your court.
+            </p>
+          </div>
+          <PaymentCheckout
+            bookingType="pickleball"
+            bookingReference={createdBooking.reference}
+            totalAmount={createdBooking.totalAmount}
+            onSubmitted={() => navigate(`/pickleball/confirmation/${createdBooking.reference}`)}
+          />
+        </div>
+      </PublicLayout>
+    )
+  }
+
   return (
     <PublicLayout>
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-28 sm:px-6 lg:px-8">
@@ -234,8 +262,8 @@ export default function PickleballBookingPage() {
               Book your pickleball session
             </h1>
             <p className="mt-4 text-muted-foreground">
-              Choose a court, pick an open hour, and tell us who’s playing. No online payment is
-              required.
+              Choose a court, pick an open hour, and tell us who’s playing. A 50% GCash down payment
+              is required to secure your reservation.
             </p>
           </div>
         </div>

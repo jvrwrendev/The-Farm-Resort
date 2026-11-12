@@ -29,6 +29,7 @@ import AdminAccommodationPage from '@/features/admin/AdminAccommodationPage'
 import AdminImageManagementPage from '@/features/admin/AdminImageManagementPage'
 import AdminCustomersPage from '@/features/admin/AdminCustomersPage'
 import AdminReportsPage from '@/features/admin/AdminReportsPage'
+import AdminPaymentsPage from '@/features/admin/AdminPaymentsPage'
 import AdminSettingsPage from '@/features/admin/AdminSettingsPage'
 import AdminAccountPage from '@/features/admin/AdminAccountPage'
 import { AdminLayout } from '@/features/admin/AdminLayout'
@@ -80,8 +81,11 @@ createRoot(document.getElementById('root')!).render(
           <BrowserRouter>
             <ScrollToTop />
             <Routes>
+
               <Route path="/" element={<LandingPage />} />
+
               <Route path="/book" element={<BookingPage />} />
+              
               <Route path="/book/confirmation/:reference" element={<BookingConfirmationPage />} />
               <Route path="/pickleball" element={<PickleballPage />} />
               <Route path="/pickleball/book" element={<PickleballBookingPage />} />
@@ -120,6 +124,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <AdminRoute title="Bookings">
                     <AdminBookingsPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/payments"
+                element={
+                  <AdminRoute title="Payments">
+                    <AdminPaymentsPage />
                   </AdminRoute>
                 }
               />

@@ -48,6 +48,10 @@ const FRIENDLY_RPC_MESSAGES: Record<string, string> = {
   PICKLEBALL_SLOT_CONFLICT:
     'That court is already reserved for the selected time. Please choose another slot.',
   PICKLEBALL_WINDOW_EXCEEDED: 'Court bookings can be made up to 90 days ahead.',
+  INVALID_BOOKING_TYPE: 'Invalid booking type for payment.',
+  BOOKING_REFERENCE_REQUIRED: 'A booking reference is required.',
+  RECEIPT_REQUIRED: 'Please upload a payment receipt.',
+  PAYMENT_RECORD_NOT_FOUND: 'Payment record not found.',
 }
 
 export function mapSupabaseError(error: unknown): string {

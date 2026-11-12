@@ -32,6 +32,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PageHeading, StatCard, StatusBadge } from '@/features/admin/components'
+import { PaymentStatusBadge } from '@/features/admin/PaymentDetailsCard'
 import { getPickleballStats } from '../service'
 import { listPickleballBookings } from '@/services/pickleballBooking.service'
 import type { PickleballBookingStatus } from '../types'
@@ -211,13 +212,14 @@ export default function AdminPickleballPage() {
                 <TableHead className="hidden lg:table-cell">Players</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="hidden lg:table-cell">Payment</TableHead>
                 <TableHead className="w-[1%] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isError ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center">
+                  <TableCell colSpan={10} className="py-10 text-center">
                     <p className="text-sm text-muted-foreground">
                       We couldn’t load the pickleball reservations.
                     </p>
@@ -234,13 +236,13 @@ export default function AdminPickleballPage() {
                 </TableRow>
               ) : isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
                     Loading reservations…
                   </TableCell>
                 </TableRow>
               ) : filteredBookings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
                     No pickleball reservations match your filters.
                   </TableCell>
                 </TableRow>
@@ -283,6 +285,9 @@ export default function AdminPickleballPage() {
                       <TableCell>{formatCurrency(booking.totalAmount)}</TableCell>
                       <TableCell>
                         <StatusBadge status={booking.status} />
+                      </TableCell>
+                      <TableCell className="hidden lg:table-cell">
+                        <PaymentStatusBadge status={booking.paymentStatus} />
                       </TableCell>
                       <TableCell className="w-[1%] text-right">
                         <PickleballBookingActions

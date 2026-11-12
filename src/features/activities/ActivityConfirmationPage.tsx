@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowLeft,
   CalendarDays,
@@ -15,6 +15,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getActivityBookingByReference } from '@/services/activity.service'
+import { getPaymentForBooking } from '@/services/payment.service'
+import { PaymentCheckout } from '@/features/payment/PaymentCheckout'
 import type { ActivityBookingStatus } from './types'
 import { formatBookingDate, formatTimeLabel } from './utils'
 import { queryKeys } from '@/lib/queryKeys'
@@ -39,11 +41,18 @@ const STATUS_LABELS: Record<ActivityBookingStatus, string> = {
 
 export default function ActivityConfirmationPage() {
   const { reference = '' } = useParams<{ reference: string }>()
+  const queryClient = useQueryClient()
 
   const { data: booking, isLoading } = useQuery({
     queryKey: queryKeys.activityBooking(reference),
     queryFn: () => getActivityBookingByReference(reference),
     enabled: Boolean(reference),
+  })
+
+  const { data: payment } = useQuery({
+    queryKey: ['payment', 'activity', reference],
+    queryFn: () => getPaymentForBooking(booking?.activityType ?? 'billiards', reference),
+    enabled: Boolean(reference && booking),
   })
 
   return (
@@ -191,10 +200,71 @@ export default function ActivityConfirmationPage() {
 
                 <p className="rounded-xl border border-primary/15 bg-primary/5 px-4 py-4 text-sm text-muted-foreground">
                   Our team will contact you at {booking.contactNumber} or {booking.email} to confirm.
-                  No payment has been taken online — please settle at the front desk.
+                  A 50% GCash down payment is required to secure this reservation.
                 </p>
               </CardContent>
             </Card>
+
+            <Card className="mt-6">
+              <CardContent className="space-y-4 pt-6">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">Payment</span>
+                  <Badge
+                    variant={
+                      payment?.status === 'verified'
+                        ? 'success'
+                        : payment?.status === 'rejected'
+                          ? 'destructive'
+                          : 'warning'
+                    }
+                  >
+                    {payment?.status === 'verified'
+                      ? 'Partially paid (50% verified)'
+                      : payment?.status === 'rejected'
+                        ? 'Rejected — please resubmit'
+                        : payment?.status === 'pending_verification'
+                          ? 'Pending verification'
+                          : 'Down payment required'}
+                  </Badge>
+                </div>
+                <div className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-3">
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Total</p>
+                    <p className="font-semibold">{formatCurrency(booking.totalAmount)}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">50% down payment</p>
+                    <p className="font-semibold">{formatCurrency(booking.totalAmount * 0.5)}</p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs text-muted-foreground">Remaining balance</p>
+                    <p className="font-semibold">{formatCurrency(booking.totalAmount * 0.5)}</p>
+                  </div>
+                </div>
+                {payment?.status === 'verified' && (
+                  <p className="text-sm text-muted-foreground">
+                    Verified down payment: {formatCurrency(payment.downPaymentAmount)}. Remaining balance: {formatCurrency(payment.remainingBalance)}.
+                  </p>
+                )}
+                {payment?.status === 'rejected' && payment.rejectionReason && (
+                  <p className="text-sm text-destructive">Reason: {payment.rejectionReason}</p>
+                )}
+              </CardContent>
+            </Card>
+
+            {(!payment || payment.status !== 'verified') && (
+              <div className="mt-6">
+                <PaymentCheckout
+                  bookingType={booking.activityType}
+                  bookingReference={booking.reference}
+                  totalAmount={booking.totalAmount}
+                  onSubmitted={() => {
+                    queryClient.invalidateQueries({ queryKey: ['payment', 'activity', reference] })
+                    queryClient.invalidateQueries({ queryKey: queryKeys.activityBooking(reference) })
+                  }}
+                />
+              </div>
+            )}
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Button asChild>

@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select'
 import { BookingActions } from '@/features/admin/BookingActions'
 import { PageHeading, StatusBadge } from '@/features/admin/components'
+import { PaymentStatusBadge } from '@/features/admin/PaymentDetailsCard'
 import { getBookings } from '@/services/admin.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { BOOKING_TYPE_OPTIONS, BOOKING_TYPE_SHORT_LABELS } from '@/lib/constants'
@@ -158,19 +159,20 @@ export default function AdminBookingsPage() {
                 <TableHead className="hidden sm:table-cell">Nights</TableHead>
                 <TableHead>Total</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="hidden lg:table-cell">Payment</TableHead>
                 <TableHead className="w-[1%] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
                     Loading bookings…
                   </TableCell>
                 </TableRow>
               ) : bookings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={11} className="py-10 text-center text-muted-foreground">
                     No bookings match your filters.
                   </TableCell>
                 </TableRow>
@@ -194,6 +196,9 @@ export default function AdminBookingsPage() {
                     <TableCell>{formatCurrency(booking.totalAmount)}</TableCell>
                     <TableCell>
                       <StatusBadge status={booking.status} />
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell">
+                      <PaymentStatusBadge status={booking.paymentStatus} />
                     </TableCell>
                     <TableCell className="w-[1%] text-right">
                       <BookingActions
