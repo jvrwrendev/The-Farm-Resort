@@ -117,7 +117,7 @@ export function ActivityCalendarPanel({
 
   const selectedKey = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null
   const selectedDayAll = selectedKey ? bookingsByDate.get(selectedKey) ?? [] : []
-  const selectedDayBookings = selectedDayAll.filter((booking) => visible[booking.status])
+  const selectedDayBookings = selectedDayAll.filter((booking) => String(booking.status) !== 'rejected' && visible[(booking.status as unknown) as CalendarStatus])
 
   const handleStatus = async (id: string, status: ActivityBookingStatus) => {
     try {
@@ -210,7 +210,7 @@ export function ActivityCalendarPanel({
                           )}–${formatTimeLabel(booking.endTime)}`}
                           className={cn(
                             'flex items-center gap-1 truncate rounded border px-1 py-0.5 text-[10px] font-medium sm:text-[11px]',
-                            CALENDAR_STATUS_CHIP[booking.status],
+                            CALENDAR_STATUS_CHIP[(String(booking.status) === 'rejected' ? 'cancelled' : booking.status) as CalendarStatus],
                           )}
                         >
                           <span className="font-semibold">{compactTime(booking.startTime)}</span>

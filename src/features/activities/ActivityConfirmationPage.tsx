@@ -31,6 +31,7 @@ const STATUS_VARIANTS: Record<
   checked_in: 'success',
   completed: 'secondary',
   cancelled: 'destructive',
+  rejected: 'destructive',
 }
 
 const STATUS_LABELS: Record<ActivityBookingStatus, string> = {
@@ -39,6 +40,7 @@ const STATUS_LABELS: Record<ActivityBookingStatus, string> = {
   checked_in: 'Rent In',
   completed: 'Completed (Rent Out)',
   cancelled: 'Cancelled',
+  rejected: 'Rejected',
 }
 
 export default function ActivityConfirmationPage() {

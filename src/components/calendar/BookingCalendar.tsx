@@ -349,6 +349,12 @@ function SelectedEventDetails({ event }: { event: CalendarEvent }) {
       message: 'This date is fully booked. Please choose another date.',
       Icon: Lock,
     },
+    rejected: {
+      label: 'Rejected',
+      className: 'bg-secondary text-secondary-foreground border-border',
+      message: 'This date may be available.',
+      Icon: Lock,
+    },
     completed: {
       label: 'Completed',
       className: 'bg-muted text-muted-foreground border-border',

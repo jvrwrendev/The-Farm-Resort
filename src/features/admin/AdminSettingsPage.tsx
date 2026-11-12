@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { PageHeading } from '@/features/admin/components'
+import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { getSettings, updateSettings } from '@/services/settings.service'
 import { queryKeys } from '@/lib/queryKeys'
 import type { AppSettings } from '@/types'
@@ -213,6 +214,16 @@ export default function AdminSettingsPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-display text-lg">Appearance</CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between">
+          <p className="text-sm text-muted-foreground">Toggle between light and dark mode.</p>
+          <ThemeToggle />
+        </CardContent>
+      </Card>
     </div>
   )
 }

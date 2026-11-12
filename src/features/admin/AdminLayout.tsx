@@ -23,6 +23,15 @@ import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { BRAND_LOGO_ALT, BRAND_LOGO_URL, BRAND_NAME } from '@/lib/brand'
 import { cn, getInitials } from '@/lib/utils'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Bell } from 'lucide-react'
+import { listNotifications, markAsRead, markAllAsRead, type Notification } from '@/services/notification.service'
 
 const NAV_SECTIONS = [
   {
@@ -164,6 +173,17 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AdminLayout({ children, title }: { children: ReactNode; title?: string }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [notifOpen, setNotifOpen] = useState(false)
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const { signOut } = useAuth()
+
+  const { data: notifications = [] } = useQuery<Notification[]>({
+    queryKey: ['notifications'],
+    queryFn: () => listNotifications(),
+    refetchInterval: 30000,
+  })
+  const unreadCount = notifications.filter((n) => !n.isRead).length
 
   useEffect(() => {
     if (!drawerOpen) return
@@ -198,6 +218,32 @@ export function AdminLayout({ children, title }: { children: ReactNode; title?: 
                   {title ?? 'Dashboard'}
                 </h1>
               </div>
+              <button
+                type="button"
+                onClick={() => setNotifOpen(true)}
+                className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Notifications"
+                title="Notifications"
+              >
+                <Bell className="h-5 w-5" />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  signOut()
+                  navigate('/admin/login', { replace: true })
+                }}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="Sign out"
+                title="Sign out"
+              >
+                <LogOut className="h-5 w-5" />
+              </button>
               <ThemeToggle />
             </div>
           </header>
@@ -205,6 +251,70 @@ export function AdminLayout({ children, title }: { children: ReactNode; title?: 
           <div className="min-w-0 flex-1 p-4 lg:p-8">{children}</div>
         </div>
       </div>
+
+      {notifOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setNotifOpen(false)} />
+          <div className="fixed right-4 top-20 z-50 w-[360px] max-w-[calc(100vw-2rem)] max-h-[80vh] overflow-y-auto rounded-2xl border bg-background p-4 shadow-2xl">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="font-display text-base font-semibold">Notifications</h3>
+              <div className="flex items-center gap-2">
+                {unreadCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await markAllAsRead()
+                      queryClient.invalidateQueries({ queryKey: ['notifications'] })
+                    }}
+                    className="text-xs font-medium text-primary hover:underline"
+                  >
+                    Mark all as read
+                  </button>
+                )}
+                <button type="button" onClick={() => setNotifOpen(false)} className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground" aria-label="Close">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            {notifications.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">No notifications yet.</p>
+            ) : (
+              <div className="space-y-2">
+                {notifications.map((n) => (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={async () => {
+                      if (!n.isRead) {
+                        await markAsRead(n.id)
+                        queryClient.invalidateQueries({ queryKey: ['notifications'] })
+                      }
+                      if (n.bookingReference && n.bookingType) {
+                        const type = n.bookingType === 'accommodation' ? 'resort' : n.bookingType
+                        navigate(`/admin/bookings/detail/${type}/${encodeURIComponent(n.bookingReference)}`)
+                        setNotifOpen(false)
+                      }
+                    }}
+                    className={`w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/50 ${n.isRead ? 'opacity-60' : 'bg-primary/5'}`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-sm font-semibold">{n.title}</p>
+                      {!n.isRead && <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-primary" />}
+                    </div>
+                    <p className="mt-1 text-xs text-muted-foreground">{n.message}</p>
+                    {n.bookingReference && (
+                      <p className="mt-1 text-xs font-medium text-primary">{n.bookingReference}</p>
+                    )}
+                    <p className="mt-1 text-[10px] text-muted-foreground">
+                      {new Date(n.createdAt).toLocaleString()}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       <AnimatePresence>
         {drawerOpen && (
