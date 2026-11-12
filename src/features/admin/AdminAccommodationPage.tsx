@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Plus, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
@@ -17,8 +17,14 @@ import {
 } from '@/components/ui/select'
 import { PageHeading } from '@/features/admin/components'
 import { getAccommodation, updateAccommodation } from '@/services/accommodation.service'
+import {
+  deleteAccommodationImage,
+  listAccommodationImages,
+  toggleAccommodationImageStatus,
+  uploadAccommodationImage,
+} from '@/services/accommodationImage.service'
 import { queryKeys } from '@/lib/queryKeys'
-import { RESORT_IMAGES } from '@/lib/images'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { Accommodation, AccommodationStatus } from '@/types'
 
@@ -31,6 +37,13 @@ export default function AdminAccommodationPage() {
 
   const [form, setForm] = useState<Accommodation | null>(null)
   const [amenityInput, setAmenityInput] = useState('')
+  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
+
+  const { data: accommodationImages = [], refetch: refetchImages } = useQuery({
+    queryKey: ['accommodation-images'],
+    queryFn: listAccommodationImages,
+  })
 
   useEffect(() => {
     if (data) setForm({ ...data })
@@ -72,6 +85,48 @@ export default function AdminAccommodationPage() {
       return
     }
     update({ images: hasImage ? form.images.filter((item) => item !== image) : [...form.images, image] })
+  }
+
+  const handleToggleImageStatus = async (id: string, current: 'active' | 'inactive') => {
+    const next = current === 'active' ? 'inactive' : 'active'
+    if (next === 'inactive' && accommodationImages.filter((i) => i.status === 'active').length <= 1) {
+      toast.error('Keep at least one active image.')
+      return
+    }
+    try {
+      await toggleAccommodationImageStatus(id, next)
+      refetchImages()
+      toast.success(next === 'active' ? 'Image activated.' : 'Image deactivated.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update image.')
+    }
+  }
+
+  const handleUploadImage = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file.')
+      return
+    }
+    setUploadingImage(true)
+    try {
+      await uploadAccommodationImage(file, file.name, '')
+      refetchImages()
+      toast.success('Image uploaded.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Upload failed.')
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  const handleDeleteImage = async (id: string, storagePath: string) => {
+    try {
+      await deleteAccommodationImage(id, storagePath)
+      refetchImages()
+      toast.success('Image deleted.')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Delete failed.')
+    }
   }
 
   const handleSave = () => {

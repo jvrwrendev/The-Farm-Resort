@@ -5,9 +5,10 @@ import { useQuery } from '@tanstack/react-query'
 import { BedDouble, Check, Users } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { getAccommodation } from '@/services/accommodation.service'
+import { listActiveAccommodationImages } from '@/services/accommodationImage.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
-import { getActiveImages } from '@/features/admin/imageStorage'
+import { DEFAULT_ACCOMMODATION_IMAGES } from '@/lib/images'
 import { DEFAULT_MAX_GUESTS, DEFAULT_PRICE_PER_NIGHT } from '@/lib/constants'
 
 export function RoomsSection() {
@@ -16,8 +17,13 @@ export function RoomsSection() {
     queryFn: getAccommodation,
   })
 
-  const managedImages = getActiveImages('accommodation').map((img) => img.fileUrl)
-  const images = managedImages
+  const { data: supabaseImages = [] } = useQuery({
+    queryKey: ['accommodation-images', 'active'],
+    queryFn: listActiveAccommodationImages,
+  })
+
+  const managedImages = supabaseImages.map((img) => img.url)
+  const images = managedImages.length > 0 ? managedImages : DEFAULT_ACCOMMODATION_IMAGES
   const [activeImage, setActiveImage] = useState(0)
   const price = accommodation?.pricePerNight ?? DEFAULT_PRICE_PER_NIGHT
   const maxGuests = accommodation?.maxGuests ?? DEFAULT_MAX_GUESTS
