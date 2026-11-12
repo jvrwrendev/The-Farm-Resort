@@ -22,6 +22,7 @@ import ActivityConfirmationPage from '@/features/activities/ActivityConfirmation
 import AdminLoginPage from '@/features/admin/AdminLoginPage'
 import AdminDashboardPage from '@/features/admin/AdminDashboardPage'
 import AdminBookingsPage from '@/features/admin/AdminBookingsPage'
+import AdminBookingDetailPage from '@/features/admin/AdminBookingDetailPage'
 import AdminBookingDetailsPage from '@/features/admin/AdminBookingDetailsPage'
 import AdminCreateBookingPage from '@/features/admin/AdminCreateBookingPage'
 import AdminCalendarPage from '@/features/admin/AdminCalendarPage'
@@ -124,6 +125,14 @@ createRoot(document.getElementById('root')!).render(
                 element={
                   <AdminRoute title="Bookings">
                     <AdminBookingsPage />
+                  </AdminRoute>
+                }
+              />
+              <Route
+                path="/admin/bookings/detail/:type/:reference"
+                element={
+                  <AdminRoute title="Booking Details">
+                    <AdminBookingDetailPage />
                   </AdminRoute>
                 }
               />

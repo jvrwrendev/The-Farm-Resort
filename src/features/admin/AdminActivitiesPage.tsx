@@ -9,6 +9,7 @@ import {
   Hash,
   ImagePlus,
   Loader2,
+  MoreVertical,
   Pencil,
   Plus,
   Receipt,
@@ -51,6 +52,12 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { PageHeading, StatusBadge } from '@/features/admin/components'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { PaymentDetailsCard, PaymentStatusBadge } from '@/features/admin/PaymentDetailsCard'
 import type {
   ActivityBooking,
@@ -816,18 +823,33 @@ function AdminActivityTab({
                     <TableCell><StatusBadge status={booking.status} /></TableCell>
                     <TableCell><PaymentStatusBadge status={booking.paymentStatus} /></TableCell>
                     <TableCell className="w-[1%] text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="sm" title="View payment details" onClick={() => setPaymentBooking(booking)}><Receipt className="h-4 w-4 text-primary" /></Button>
-                        {booking.status === 'pending' && (
-                          <>
-                            <Button variant="ghost" size="sm" title="Approve" onClick={() => handleBookingStatus(booking.id, 'confirmed')}><CheckCircle2 className="h-4 w-4 text-emerald-600" /></Button>
-                            <Button variant="ghost" size="sm" title="Reject" onClick={() => handleBookingStatus(booking.id, 'cancelled')}><XCircle className="h-4 w-4 text-destructive" /></Button>
-                          </>
-                        )}
-                        {booking.status === 'confirmed' && (
-                          <Button variant="ghost" size="sm" title="Complete" onClick={() => handleBookingStatus(booking.id, 'completed')}><CheckCircle2 className="h-4 w-4" /></Button>
-                        )}
-                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => setPaymentBooking(booking)}>
+                            <Receipt className="h-4 w-4 text-primary" /> Payment / receipt
+                          </DropdownMenuItem>
+                          {booking.status === 'pending' && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleBookingStatus(booking.id, 'confirmed')}>
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Approve
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleBookingStatus(booking.id, 'cancelled')} className="text-destructive focus:text-destructive">
+                                <XCircle className="h-4 w-4" /> Cancel
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {booking.status === 'confirmed' && (
+                            <DropdownMenuItem onClick={() => handleBookingStatus(booking.id, 'completed')}>
+                              <CheckCircle2 className="h-4 w-4" /> Complete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

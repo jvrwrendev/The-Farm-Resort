@@ -428,9 +428,9 @@ export default function AdminImageManagementPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as ImageCategory)}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="inline-flex h-auto w-auto gap-1 rounded-lg bg-muted/50 p-1">
           {CATEGORIES.map((c) => (
-            <TabsTrigger key={c.key} value={c.key}>
+            <TabsTrigger key={c.key} value={c.key} className="rounded-md px-3 py-1.5 text-sm">
               {c.label}
             </TabsTrigger>
           ))}

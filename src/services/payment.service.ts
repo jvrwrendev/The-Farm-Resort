@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase'
 import { mapPostgrestError } from '@/lib/errors'
 
 export type PaymentBookingType = 'accommodation' | 'pickleball' | 'billiards' | 'atv'
-export type PaymentRecordStatus = 'pending_verification' | 'verified' | 'rejected'
+export type PaymentRecordStatus = 'pending_verification' | 'verified' | 'rejected' | 'paid'
 
 export interface PaymentSettings {
   gcashAccountName: string
@@ -15,9 +15,13 @@ export interface PaymentRecord {
   id: string
   bookingType: PaymentBookingType
   bookingReference: string
+  originalAmount: number
+  discountType: 'none' | 'fixed' | 'percent'
+  discountValue: number
   totalAmount: number
   downPaymentAmount: number
   remainingBalance: number
+  amountPaid: number
   receiptUrl: string
   status: PaymentRecordStatus
   rejectionReason: string
@@ -37,9 +41,13 @@ interface RecordRow {
   id: string
   booking_type: PaymentBookingType
   booking_reference: string
+  original_amount: number | null
+  discount_type: 'none' | 'fixed' | 'percent' | null
+  discount_value: number | null
   total_amount: number
   down_payment_amount: number
   remaining_balance: number
+  amount_paid: number | null
   receipt_url: string | null
   status: PaymentRecordStatus
   rejection_reason: string | null
@@ -64,9 +72,13 @@ function rowToRecord(row: RecordRow): PaymentRecord {
     id: row.id,
     bookingType: row.booking_type,
     bookingReference: row.booking_reference,
+    originalAmount: Number(row.original_amount ?? row.total_amount),
+    discountType: row.discount_type ?? 'none',
+    discountValue: Number(row.discount_value ?? 0),
     totalAmount: Number(row.total_amount),
     downPaymentAmount: Number(row.down_payment_amount),
     remainingBalance: Number(row.remaining_balance),
+    amountPaid: Number(row.amount_paid ?? 0),
     receiptUrl: row.receipt_url ?? '',
     status: row.status,
     rejectionReason: row.rejection_reason ?? '',
@@ -176,6 +188,30 @@ export async function verifyPayment(
     p_record_id: recordId,
     p_approve: approve,
     p_reason: reason ?? null,
+  })
+  if (error) throw new Error(mapPostgrestError(error))
+  return rowToRecord(data as RecordRow)
+}
+
+export async function applyDiscount(input: {
+  bookingType: PaymentBookingType
+  bookingReference: string
+  discountType: 'none' | 'fixed' | 'percent'
+  discountValue: number
+}): Promise<PaymentRecord> {
+  const { data, error } = await supabase.rpc('apply_discount', {
+    p_booking_type: input.bookingType,
+    p_reference: input.bookingReference,
+    p_discount_type: input.discountType,
+    p_discount_value: input.discountValue,
+  })
+  if (error) throw new Error(mapPostgrestError(error))
+  return rowToRecord(data as RecordRow)
+}
+
+export async function completePayment(recordId: string): Promise<PaymentRecord> {
+  const { data, error } = await supabase.rpc('complete_payment', {
+    p_record_id: recordId,
   })
   if (error) throw new Error(mapPostgrestError(error))
   return rowToRecord(data as RecordRow)

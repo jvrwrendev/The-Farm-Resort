@@ -1,13 +1,22 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import {
   CheckCircle2,
+  Eye,
+  MoreVertical,
   Receipt,
   Search,
   XCircle,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -44,7 +53,7 @@ import { listActivityBookings, updateActivityBookingStatus } from '@/services/ac
 import { updatePickleballBookingStatus } from '@/services/pickleballBooking.service'
 import { updateBookingStatus } from '@/services/admin.service'
 import { queryKeys } from '@/lib/queryKeys'
-import { cn, formatCurrency } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import type { AdminBooking } from '@/types'
 import type { PickleballBooking } from '@/features/pickleball/types'
 import type { ActivityBooking } from '@/features/activities/types'
@@ -93,6 +102,7 @@ function paymentTypeFor(tab: TabKey): PaymentBookingType {
 }
 
 export default function AdminBookingsPage() {
+  const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [activeTab, setActiveTab] = useState<TabKey>('resort')
 
@@ -266,8 +276,24 @@ export default function AdminBookingsPage() {
               ) : (
                 rows.map((row) => (
                   <TableRow key={row.id}>
-                    <TableCell className="font-mono text-xs font-medium">{row.reference}</TableCell>
-                    <TableCell className="font-medium">{row.customerName}</TableCell>
+                    <TableCell className="font-mono text-xs font-medium">
+                      <button
+                        type="button"
+                        className="text-primary hover:underline"
+                        onClick={() => navigate(`/admin/bookings/detail/${activeTab}/${encodeURIComponent(row.reference)}`)}
+                      >
+                        {row.reference}
+                      </button>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      <button
+                        type="button"
+                        className="text-primary hover:underline"
+                        onClick={() => navigate(`/admin/bookings/detail/${activeTab}/${encodeURIComponent(row.reference)}`)}
+                      >
+                        {row.customerName}
+                      </button>
+                    </TableCell>
                     <TableCell>{format(parseISO(row.date), 'MMM d, yyyy')}</TableCell>
                     <TableCell className="hidden sm:table-cell">{row.schedule}</TableCell>
                     <TableCell>{formatCurrency(row.total)}</TableCell>
@@ -278,53 +304,36 @@ export default function AdminBookingsPage() {
                       <StatusBadge status={row.status as AdminBooking['status']} />
                     </TableCell>
                     <TableCell className="w-[1%] text-right">
-                      <div className="flex justify-end gap-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          title="View payment details"
-                          onClick={() =>
-                            setPaymentTarget({
-                              type: pType,
-                              reference: row.reference,
-                              total: row.total,
-                              status: row.paymentStatus,
-                            })
-                          }
-                        >
-                          <Receipt className="h-4 w-4 text-primary" />
-                        </Button>
-                        {row.status === 'pending' && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Approve"
-                              onClick={() => handleStatusChange(tab, row.id, 'confirmed')}
-                            >
-                              <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              title="Cancel"
-                              onClick={() => handleStatusChange(tab, row.id, 'cancelled')}
-                            >
-                              <XCircle className="h-4 w-4 text-destructive" />
-                            </Button>
-                          </>
-                        )}
-                        {row.status === 'confirmed' && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Complete"
-                            onClick={() => handleStatusChange(tab, row.id, 'completed')}
-                          >
-                            <CheckCircle2 className="h-4 w-4" />
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <MoreVertical className="h-4 w-4" />
                           </Button>
-                        )}
-                      </div>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => navigate(`/admin/bookings/detail/${activeTab}/${encodeURIComponent(row.reference)}`)}>
+                            View details
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => setPaymentTarget({ type: pType, reference: row.reference, total: row.total, status: row.paymentStatus })}>
+                            Payment / receipt
+                          </DropdownMenuItem>
+                          {row.status === 'pending' && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleStatusChange(tab, row.id, 'confirmed')}>
+                                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Approve
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleStatusChange(tab, row.id, 'cancelled')} className="text-destructive focus:text-destructive">
+                                <XCircle className="h-4 w-4" /> Cancel
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {row.status === 'confirmed' && (
+                            <DropdownMenuItem onClick={() => handleStatusChange(tab, row.id, 'completed')}>
+                              <CheckCircle2 className="h-4 w-4" /> Complete
+                            </DropdownMenuItem>
+                          )}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))
@@ -341,9 +350,11 @@ export default function AdminBookingsPage() {
       <PageHeading title="Bookings" description="All resort, pickleball, ATV, and billiards reservations in one place." />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+        <TabsList className="inline-flex h-auto w-auto gap-1 rounded-lg bg-muted/50 p-1">
           {TABS.map((t) => (
-            <TabsTrigger key={t.key} value={t.key}>{t.label}</TabsTrigger>
+            <TabsTrigger key={t.key} value={t.key} className="rounded-md px-3 py-1.5 text-sm">
+              {t.label}
+            </TabsTrigger>
           ))}
         </TabsList>
 
@@ -421,6 +432,8 @@ export default function AdminBookingsPage() {
           )}
         </DialogContent>
       </Dialog>
+
+
     </div>
   )
 }
