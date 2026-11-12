@@ -5,7 +5,6 @@ import {
   Banknote,
   CheckCircle2,
   CircleDot,
-  Clock,
   Gauge,
   Hash,
   ImagePlus,
@@ -51,7 +50,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { PageHeading, StatCard, StatusBadge } from '@/features/admin/components'
+import { PageHeading, StatusBadge } from '@/features/admin/components'
 import { PaymentDetailsCard, PaymentStatusBadge } from '@/features/admin/PaymentDetailsCard'
 import type {
   ActivityBooking,
@@ -261,22 +260,6 @@ function AdminActivityTab({
     })
   }, [bookings, search, statusFilter])
 
-  const stats = useMemo(
-    () =>
-      bookings.reduce(
-        (acc, booking) => {
-          acc.total += 1
-          acc[booking.status] += 1
-          if (booking.status === 'confirmed' || booking.status === 'completed') {
-            acc.revenue += booking.totalAmount
-          }
-          return acc
-        },
-        { total: 0, pending: 0, confirmed: 0, completed: 0, cancelled: 0, revenue: 0 },
-      ),
-    [bookings],
-  )
-
   const inventoryStats = useMemo(
     () => ({
       total: units.length,
@@ -481,14 +464,6 @@ function AdminActivityTab({
 
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard title="Total" value={stats.total} icon={Clock} />
-        <StatCard title="Pending" value={stats.pending} icon={Clock} hint="Awaiting review" />
-        <StatCard title="Confirmed" value={stats.confirmed} icon={CheckCircle2} />
-        <StatCard title="Completed" value={stats.completed} icon={CheckCircle2} />
-        <StatCard title="Revenue" value={formatCurrency(stats.revenue)} icon={CheckCircle2} />
-      </div>
-
       <Card className="overflow-hidden border-border/70 shadow-sm">
         <CardHeader className="border-b bg-muted/30">
           <CardTitle className="font-display text-lg">

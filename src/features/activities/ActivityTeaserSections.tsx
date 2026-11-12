@@ -76,8 +76,6 @@ function ActivitySection({
   const activity = activities[0]
   const name = activity?.name ?? fallbackTitle
   const description = activity?.description || fallbackDescription
-  const unitImage = units.find((unit) => unit.imageUrl)?.imageUrl
-  const imageUrl = activity?.imageUrl || unitImage
 
   const rates = units.map((unit) => unit.weekdayRate).filter((rate) => rate > 0)
   const rate =
@@ -100,7 +98,7 @@ function ActivitySection({
           transition={{ duration: 0.6 }}
           className={`group relative block w-full cursor-pointer overflow-hidden rounded-2xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${reverse ? 'lg:order-2' : ''}`}
         >
-          <ActivityVisual activity={activity} imageUrl={imageUrl} accent={accent} />
+          <ActivityVisual activity={activity} accent={accent} />
           <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
           <div className="pointer-events-none absolute bottom-4 left-4 rounded-xl border border-white/20 bg-black/40 px-3 py-2 backdrop-blur">
             <p className="text-xs font-semibold text-white">

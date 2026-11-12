@@ -74,22 +74,10 @@ export default function AdminCalendarPage() {
         className="space-y-6"
       >
         <TabsList className="grid w-full grid-cols-2 sm:inline-flex sm:w-auto">
-          <TabsTrigger value="accommodation" className="gap-2">
-            <BedDouble className="h-4 w-4" />
-            Accommodation
-          </TabsTrigger>
-          <TabsTrigger value="pickleball" className="gap-2">
-            <Trophy className="h-4 w-4" />
-            Pickleball
-          </TabsTrigger>
-          <TabsTrigger value="billiards" className="gap-2">
-            <CircleDot className="h-4 w-4" />
-            Billiards
-          </TabsTrigger>
-          <TabsTrigger value="atv" className="gap-2">
-            <Gauge className="h-4 w-4" />
-            ATV
-          </TabsTrigger>
+          <TabsTrigger value="accommodation">Accommodation</TabsTrigger>
+          <TabsTrigger value="pickleball">Pickleball</TabsTrigger>
+          <TabsTrigger value="billiards">Billiards</TabsTrigger>
+          <TabsTrigger value="atv">ATV</TabsTrigger>
         </TabsList>
 
         <Card>

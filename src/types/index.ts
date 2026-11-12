@@ -49,6 +49,8 @@ export interface RoomRow {
   capacity: number
   image_url: string | null
   images: string[]
+  about_image_url: string | null
+  room_image_url: string | null
   amenities: string[]
   status: 'available' | 'unavailable'
   created_at: string
@@ -244,6 +246,8 @@ export interface Accommodation {
   amenities: string[]
   images: string[]
   image_url: string | null
+  aboutImageUrl: string | null
+  roomImageUrl: string | null
   status: AccommodationStatus
   createdAt: string
   updatedAt: string

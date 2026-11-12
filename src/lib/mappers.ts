@@ -27,6 +27,8 @@ export function mapRoomToAccommodation(row: RoomRow): Accommodation {
     amenities: row.amenities ?? [],
     images,
     image_url: row.image_url,
+    aboutImageUrl: row.about_image_url ?? null,
+    roomImageUrl: row.room_image_url ?? null,
     status: row.status as AccommodationStatus,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

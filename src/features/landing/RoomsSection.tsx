@@ -23,7 +23,10 @@ export function RoomsSection() {
   })
 
   const managedImages = supabaseImages.map((img) => img.url)
-  const images = managedImages.length > 0 ? managedImages : DEFAULT_ACCOMMODATION_IMAGES
+  const baseImages = managedImages.length > 0 ? managedImages : DEFAULT_ACCOMMODATION_IMAGES
+  const images = accommodation?.image_url
+    ? [accommodation.image_url, ...baseImages.filter((u) => u !== accommodation.image_url)]
+    : baseImages
   const [activeImage, setActiveImage] = useState(0)
   const price = accommodation?.pricePerNight ?? DEFAULT_PRICE_PER_NIGHT
   const maxGuests = accommodation?.maxGuests ?? DEFAULT_MAX_GUESTS

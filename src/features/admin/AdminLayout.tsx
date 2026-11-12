@@ -37,7 +37,6 @@ const NAV_SECTIONS = [
     items: [
       { to: '/admin/bookings', label: 'Bookings', icon: CalendarDays },
       { to: '/admin/payments', label: 'Payments', icon: CreditCard },
-      { to: '/admin/pickleball', label: 'Pickleball', icon: Trophy },
       { to: '/admin/pickleball-courts', label: 'Pickleball Courts', icon: Trophy },
       { to: '/admin/activities', label: 'Activities', icon: Dices },
       { to: '/admin/accommodation', label: 'Accommodation', icon: BedDouble },

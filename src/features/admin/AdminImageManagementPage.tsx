@@ -19,6 +19,15 @@ import {
   deletePickleballImage,
 } from '@/services/pickleballImage.service'
 import type { PickleballImage } from '@/services/pickleballImage.service'
+import {
+  listAccommodationImages,
+  uploadAccommodationImage,
+  updateAccommodationImage,
+  replaceAccommodationImage,
+  toggleAccommodationImageStatus,
+  deleteAccommodationImage,
+} from '@/services/accommodationImage.service'
+import type { AccommodationImage } from '@/services/accommodationImage.service'
 
 const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_SIZE = 2 * 1024 * 1024 // 2 MB
@@ -52,6 +61,8 @@ export default function AdminImageManagementPage() {
   const [images, setImages] = useState<ManagedImage[]>(() => loadImages())
   const [pickleballImages, setPickleballImages] = useState<PickleballImage[]>([])
   const [pickleballLoading, setPickleballLoading] = useState(false)
+  const [accommodationImages, setAccommodationImages] = useState<AccommodationImage[]>([])
+  const [accommodationLoading, setAccommodationLoading] = useState(false)
   const [brokenImageIds, setBrokenImageIds] = useState<Set<string>>(() => new Set())
   const [activeTab, setActiveTab] = useState<ImageCategory>('accommodation')
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -89,8 +100,19 @@ export default function AdminImageManagementPage() {
         uploadedAt: img.createdAt,
       }))
     }
+    if (activeTab === 'accommodation') {
+      return accommodationImages.map((img) => ({
+        id: img.id,
+        name: img.name,
+        description: img.description,
+        category: 'accommodation' as ImageCategory,
+        displayStatus: img.status,
+        fileUrl: img.url,
+        uploadedAt: img.createdAt,
+      }))
+    }
     return images.filter((img) => img.category === activeTab)
-  }, [activeTab, images, pickleballImages])
+  }, [activeTab, images, pickleballImages, accommodationImages])
 
   const persist = useCallback((next: ManagedImage[]) => {
     setImages(next)
@@ -112,9 +134,25 @@ export default function AdminImageManagementPage() {
     }
   }, [])
 
+  const fetchAccommodationImages = useCallback(async () => {
+    setAccommodationLoading(true)
+    try {
+      const data = await listAccommodationImages()
+      setAccommodationImages(data)
+      setBrokenImageIds(new Set())
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to load accommodation images.',
+      )
+    } finally {
+      setAccommodationLoading(false)
+    }
+  }, [])
+
   useEffect(() => {
     fetchPickleballImages()
-  }, [fetchPickleballImages])
+    fetchAccommodationImages()
+  }, [fetchPickleballImages, fetchAccommodationImages])
 
   // ---- Upload flow ----
   const handleFileSelected = (file: File) => {
@@ -150,6 +188,9 @@ export default function AdminImageManagementPage() {
       if (activeTab === 'pickleball') {
         const newImg = await uploadPickleballImage(uploadFile, uploadName.trim(), uploadDesc.trim())
         setPickleballImages((prev) => [newImg, ...prev])
+      } else if (activeTab === 'accommodation') {
+        const newImg = await uploadAccommodationImage(uploadFile, uploadName.trim(), uploadDesc.trim())
+        setAccommodationImages((prev) => [newImg, ...prev])
       } else {
         const newImage: ManagedImage = {
           id: crypto.randomUUID(),
@@ -199,15 +240,27 @@ export default function AdminImageManagementPage() {
       return
     }
     const isPickleball = pickleballImages.some((img) => img.id === editImage.id)
+    const isAccommodation = accommodationImages.some((img) => img.id === editImage.id)
     try {
-      if (isPickleball) {
-        const updated = await updatePickleballImage(editImage.id, {
-          name: editName.trim(),
-          description: editDesc.trim(),
-        })
-        setPickleballImages((prev) =>
-          prev.map((img) => (img.id === updated.id ? updated : img)),
-        )
+      if (isPickleball || isAccommodation) {
+        const updated = isAccommodation
+          ? await updateAccommodationImage(editImage.id, {
+              name: editName.trim(),
+              description: editDesc.trim(),
+            })
+          : await updatePickleballImage(editImage.id, {
+              name: editName.trim(),
+              description: editDesc.trim(),
+            })
+        if (isAccommodation) {
+          setAccommodationImages((prev) =>
+            prev.map((img) => (img.id === updated.id ? updated : img)),
+          )
+        } else {
+          setPickleballImages((prev) =>
+            prev.map((img) => (img.id === updated.id ? updated : img)),
+          )
+        }
         setBrokenImageIds((current) => {
           const next = new Set(current)
           next.delete(updated.id)
@@ -254,15 +307,24 @@ export default function AdminImageManagementPage() {
     setReplacing(true)
     try {
       const isPickleball = pickleballImages.some((img) => img.id === replaceImage.id)
-      if (isPickleball) {
+      const isAccommodation = accommodationImages.some((img) => img.id === replaceImage.id)
+      if (isPickleball || isAccommodation) {
         if (!replaceFile) {
           toast.error('Please select a new image.')
           return
         }
-        const updated = await replacePickleballImage(replaceImage.id, replaceFile)
-        setPickleballImages((prev) =>
-          prev.map((img) => (img.id === updated.id ? updated : img)),
-        )
+        const updated = isAccommodation
+          ? await replaceAccommodationImage(replaceImage.id, replaceFile)
+          : await replacePickleballImage(replaceImage.id, replaceFile)
+        if (isAccommodation) {
+          setAccommodationImages((prev) =>
+            prev.map((img) => (img.id === updated.id ? updated : img)),
+          )
+        } else {
+          setPickleballImages((prev) =>
+            prev.map((img) => (img.id === updated.id ? updated : img)),
+          )
+        }
         setBrokenImageIds((current) => {
           const next = new Set(current)
           next.delete(updated.id)
@@ -291,13 +353,22 @@ export default function AdminImageManagementPage() {
   // ---- Toggle status ----
   const toggleStatus = async (img: ManagedImage) => {
     const isPickleball = pickleballImages.some((i) => i.id === img.id)
+    const isAccommodation = accommodationImages.some((i) => i.id === img.id)
     try {
-      if (isPickleball) {
+      if (isPickleball || isAccommodation) {
         const newStatus = img.displayStatus === 'active' ? 'inactive' : 'active'
-        const updated = await togglePickleballImageStatus(img.id, newStatus)
-        setPickleballImages((prev) =>
-          prev.map((i) => (i.id === updated.id ? updated : i)),
-        )
+        const updated = isAccommodation
+          ? await toggleAccommodationImageStatus(img.id, newStatus)
+          : await togglePickleballImageStatus(img.id, newStatus)
+        if (isAccommodation) {
+          setAccommodationImages((prev) =>
+            prev.map((i) => (i.id === updated.id ? updated : i)),
+          )
+        } else {
+          setPickleballImages((prev) =>
+            prev.map((i) => (i.id === updated.id ? updated : i)),
+          )
+        }
       } else {
         const next = images.map((i) =>
           i.id === img.id
@@ -318,11 +389,19 @@ export default function AdminImageManagementPage() {
   const handleDelete = async () => {
     if (!deleteImage) return
     const isPickleball = pickleballImages.some((i) => i.id === deleteImage.id)
+    const isAccommodation = accommodationImages.some((i) => i.id === deleteImage.id)
     try {
-      if (isPickleball) {
-        const img = pickleballImages.find((i) => i.id === deleteImage.id)
-        await deletePickleballImage(deleteImage.id, img?.storagePath ?? '')
-        setPickleballImages((prev) => prev.filter((i) => i.id !== deleteImage.id))
+      if (isPickleball || isAccommodation) {
+        const img = isAccommodation
+          ? accommodationImages.find((i) => i.id === deleteImage.id)
+          : pickleballImages.find((i) => i.id === deleteImage.id)
+        if (isAccommodation) {
+          await deleteAccommodationImage(deleteImage.id, img?.storagePath ?? '')
+          setAccommodationImages((prev) => prev.filter((i) => i.id !== deleteImage.id))
+        } else {
+          await deletePickleballImage(deleteImage.id, img?.storagePath ?? '')
+          setPickleballImages((prev) => prev.filter((i) => i.id !== deleteImage.id))
+        }
       } else {
         const next = images.filter((i) => i.id !== deleteImage.id)
         persist(next as ManagedImage[])
@@ -359,7 +438,7 @@ export default function AdminImageManagementPage() {
 
         {CATEGORIES.map((c) => (
           <TabsContent key={c.key} value={c.key} className="mt-6">
-            {pickleballLoading && activeTab === 'pickleball' ? (
+            {(pickleballLoading && activeTab === 'pickleball') || (accommodationLoading && activeTab === 'accommodation') ? (
               <Card>
                 <CardContent className="flex items-center justify-center py-16">
                   <span className="text-sm text-muted-foreground">Loading images…</span>

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Plus, Save, X } from 'lucide-react'
+import { Plus, Save, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,15 +17,9 @@ import {
 } from '@/components/ui/select'
 import { PageHeading } from '@/features/admin/components'
 import { getAccommodation, updateAccommodation } from '@/services/accommodation.service'
-import {
-  deleteAccommodationImage,
-  listAccommodationImages,
-  toggleAccommodationImageStatus,
-  uploadAccommodationImage,
-} from '@/services/accommodationImage.service'
+import { supabase } from '@/lib/supabase'
 import { queryKeys } from '@/lib/queryKeys'
-import { toast } from 'sonner'
-import { cn } from '@/lib/utils'
+
 import type { Accommodation, AccommodationStatus } from '@/types'
 
 export default function AdminAccommodationPage() {
@@ -39,11 +33,6 @@ export default function AdminAccommodationPage() {
   const [amenityInput, setAmenityInput] = useState('')
   const imageInputRef = useRef<HTMLInputElement>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
-
-  const { data: accommodationImages = [], refetch: refetchImages } = useQuery({
-    queryKey: ['accommodation-images'],
-    queryFn: listAccommodationImages,
-  })
 
   useEffect(() => {
     if (data) setForm({ ...data })
@@ -78,54 +67,26 @@ export default function AdminAccommodationPage() {
   const removeAmenity = (amenity: string) =>
     update({ amenities: form.amenities.filter((item) => item !== amenity) })
 
-  const toggleImage = (image: string) => {
-    const hasImage = form.images.includes(image)
-    if (hasImage && form.images.length === 1) {
-      toast.error('Keep at least one image.')
-      return
-    }
-    update({ images: hasImage ? form.images.filter((item) => item !== image) : [...form.images, image] })
-  }
-
-  const handleToggleImageStatus = async (id: string, current: 'active' | 'inactive') => {
-    const next = current === 'active' ? 'inactive' : 'active'
-    if (next === 'inactive' && accommodationImages.filter((i) => i.status === 'active').length <= 1) {
-      toast.error('Keep at least one active image.')
-      return
-    }
-    try {
-      await toggleAccommodationImageStatus(id, next)
-      refetchImages()
-      toast.success(next === 'active' ? 'Image activated.' : 'Image deactivated.')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to update image.')
-    }
-  }
-
-  const handleUploadImage = async (file: File) => {
+  const handleUploadAccommodationImage = async (file: File) => {
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file.')
       return
     }
     setUploadingImage(true)
     try {
-      await uploadAccommodationImage(file, file.name, '')
-      refetchImages()
-      toast.success('Image uploaded.')
+      const ext = file.name.split('.').pop() || 'jpg'
+      const path = `accommodation-${crypto.randomUUID()}.${ext}`
+      const { error: uploadError } = await supabase.storage
+        .from('accommodation-images')
+        .upload(path, file, { upsert: false })
+      if (uploadError) throw uploadError
+      const { data } = supabase.storage.from('accommodation-images').getPublicUrl(path)
+      update({ images: [data.publicUrl], aboutImageUrl: data.publicUrl, roomImageUrl: data.publicUrl })
+      toast.success('Image uploaded. Save changes to apply.')
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Upload failed.')
     } finally {
       setUploadingImage(false)
-    }
-  }
-
-  const handleDeleteImage = async (id: string, storagePath: string) => {
-    try {
-      await deleteAccommodationImage(id, storagePath)
-      refetchImages()
-      toast.success('Image deleted.')
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Delete failed.')
     }
   }
 
@@ -142,6 +103,8 @@ export default function AdminAccommodationPage() {
       amenities: form.amenities,
       images: form.images,
       status: form.status,
+      aboutImageUrl: form.aboutImageUrl,
+      roomImageUrl: form.roomImageUrl,
     })
   }
 
@@ -255,37 +218,54 @@ export default function AdminAccommodationPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="font-display text-lg">Images</CardTitle>
+          <CardTitle className="font-display text-lg">Accommodation image</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-            {RESORT_IMAGES.map((image) => {
-              const selected = form.images.includes(image)
-              return (
-                <button
-                  key={image}
+        <CardContent className="space-y-4">
+          <div className="flex flex-wrap items-center gap-4">
+            {form.image_url ? (
+              <img
+                src={form.image_url}
+                alt="Accommodation"
+                className="h-32 w-44 rounded-xl object-cover ring-2 ring-primary"
+              />
+            ) : (
+              <div className="flex h-32 w-44 items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground">
+                No image
+              </div>
+            )}
+            <div className="space-y-2">
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0]
+                  if (file) handleUploadAccommodationImage(file)
+                  e.target.value = ''
+                }}
+              />
+              <Button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                loading={uploadingImage}
+              >
+                {form.image_url ? 'Replace image' : 'Upload image'}
+              </Button>
+              {form.image_url && (
+                <Button
                   type="button"
-                  onClick={() => toggleImage(image)}
-                  className={cn(
-                    'group relative aspect-square overflow-hidden rounded-xl border-2 transition-colors',
-                    selected ? 'border-primary' : 'border-transparent',
-                  )}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => update({ images: [], aboutImageUrl: null, roomImageUrl: null })}
                 >
-                  <img src={image} alt="" className="h-full w-full object-cover" />
-                  <span
-                    className={cn(
-                      'absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full',
-                      selected ? 'bg-primary text-primary-foreground' : 'bg-black/40 text-white opacity-0 group-hover:opacity-100',
-                    )}
-                  >
-                    <Check className="h-3 w-3" />
-                  </span>
-                </button>
-              )
-            })}
+                  Remove
+                </Button>
+              )}
+            </div>
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Selected images appear on the booking page and landing showcase.
+          <p className="text-xs text-muted-foreground">
+            Upload or replace the primary accommodation image. It is stored in Supabase and displayed automatically on the public Accommodation page.
           </p>
         </CardContent>
       </Card>

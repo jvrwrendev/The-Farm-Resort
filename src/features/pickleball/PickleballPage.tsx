@@ -30,7 +30,7 @@ import {
   PICKLEBALL_SETTINGS,
 } from './mockData'
 import { formatCurrency } from '@/lib/utils'
-import picklebg from '@/assets/picklebg.jpeg'
+import heroBg from '@/assets/images/hero.jpg'
 import { listPickleballCourts } from '@/services/pickleballCourt.service'
 import { useQuery } from '@tanstack/react-query'
 import { formatTimeLabel } from './utils'
@@ -66,7 +66,7 @@ export default function PickleballPage() {
       <section
         className="relative isolate w-full overflow-hidden scroll-mt-24"
         style={{
-          backgroundImage: `url(${picklebg})`,
+          backgroundImage: `url(${heroBg})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center center',
           backgroundRepeat: 'no-repeat',

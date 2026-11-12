@@ -62,6 +62,8 @@ export async function updateAccommodation(
     patch.images = updates.images
     patch.image_url = updates.images[0] ?? null
   }
+  if (updates.aboutImageUrl !== undefined) patch.about_image_url = updates.aboutImageUrl
+  if (updates.roomImageUrl !== undefined) patch.room_image_url = updates.roomImageUrl
 
   const { data, error } = await supabase
     .from('rooms')

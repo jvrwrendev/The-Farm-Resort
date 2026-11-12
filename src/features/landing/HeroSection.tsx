@@ -3,7 +3,7 @@ import { motion } from 'framer-motion'
 import { useQuery } from '@tanstack/react-query'
 import { Calendar, Bed, Tag, CalendarCheck2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { HERO_BACKGROUND_URL, ABOUT_IMAGE_URL } from '@/features/landing/mockContent'
+import { HERO_BACKGROUND_URL } from '@/features/landing/mockContent'
 import { getAccommodation } from '@/services/accommodation.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
@@ -180,6 +180,10 @@ export function HeroSection() {
 }
 
 export function AboutSection() {
+  const { data: accommodation } = useQuery({
+    queryKey: queryKeys.accommodation,
+    queryFn: getAccommodation,
+  })
   const highlights = [
     {
       title: 'A relaxing, premium atmosphere',
@@ -206,7 +210,7 @@ export function AboutSection() {
           className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl bg-muted sm:aspect-[5/4] lg:aspect-[4/5]"
         >
           <img
-            src={ABOUT_IMAGE_URL}
+            src={accommodation?.image_url || HERO_BACKGROUND_URL}
             alt="The Farm resort exterior"
             className="h-full w-full object-cover"
             loading="lazy"
