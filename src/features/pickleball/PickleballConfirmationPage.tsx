@@ -37,15 +37,19 @@ const STATUS_VARIANTS: Record<
 > = {
   pending: 'warning',
   confirmed: 'success',
+  checked_in: 'success',
   completed: 'secondary',
   cancelled: 'destructive',
+  rejected: 'destructive',
 }
 
 const STATUS_LABELS: Record<PickleballBookingStatus, string> = {
   pending: 'Pending confirmation',
   confirmed: 'Confirmed',
+  checked_in: 'Checked in',
   completed: 'Completed',
   cancelled: 'Cancelled',
+  rejected: 'Rejected',
 }
 
 function DetailRow({

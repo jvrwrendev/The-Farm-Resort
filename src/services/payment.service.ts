@@ -179,6 +179,30 @@ export async function listPaymentRecords(
   return ((data ?? []) as RecordRow[]).map(rowToRecord)
 }
 
+export async function approveBooking(
+  bookingType: PaymentBookingType,
+  reference: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('approve_booking', {
+    p_booking_type: bookingType,
+    p_reference: reference,
+  })
+  if (error) throw new Error(mapPostgrestError(error))
+}
+
+export async function rejectBooking(
+  bookingType: PaymentBookingType,
+  reference: string,
+  reason?: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('reject_booking', {
+    p_booking_type: bookingType,
+    p_reference: reference,
+    p_reason: reason ?? null,
+  })
+  if (error) throw new Error(mapPostgrestError(error))
+}
+
 export async function verifyPayment(
   recordId: string,
   approve: boolean,

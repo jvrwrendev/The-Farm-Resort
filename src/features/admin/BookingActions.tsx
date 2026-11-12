@@ -1,12 +1,6 @@
-import type { ComponentType } from 'react'
 import {
-  BadgeCheck,
-  CheckCircle2,
-  Clock,
-  Eye,
   Loader2,
   MoreHorizontal,
-  XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,29 +17,28 @@ import type { AdminBooking, AdminBookingStatus } from '@/types'
 const LABELS: Record<AdminBookingStatus, string> = {
   pending: 'Mark as pending',
   confirmed: 'Confirm booking',
+  checked_in: 'Check in',
   completed: 'Mark as completed',
   cancelled: 'Cancel booking',
+  rejected: 'Reject booking',
 }
 
 const SHORT_LABELS: Record<AdminBookingStatus, string> = {
   pending: 'Pending',
   confirmed: 'Confirm',
+  checked_in: 'Check-in',
   completed: 'Complete',
   cancelled: 'Cancel',
-}
-
-const ICONS: Record<AdminBookingStatus, ComponentType<{ className?: string }>> = {
-  pending: Clock,
-  confirmed: BadgeCheck,
-  completed: CheckCircle2,
-  cancelled: XCircle,
+  rejected: 'Rejected',
 }
 
 const VARIANTS: Record<AdminBookingStatus, 'default' | 'outline' | 'destructive'> = {
   pending: 'outline',
   confirmed: 'default',
+  checked_in: 'default',
   completed: 'outline',
   cancelled: 'destructive',
+  rejected: 'destructive',
 }
 
 interface BookingActionsProps {
@@ -76,13 +69,11 @@ export function BookingActions({ booking, onView, variant = 'inline' }: BookingA
             <DropdownMenuLabel className="truncate">{booking.bookingReference}</DropdownMenuLabel>
             {onView && (
               <DropdownMenuItem onSelect={() => onView(booking)}>
-                <Eye />
                 View details
               </DropdownMenuItem>
             )}
             {onView && statuses.length > 0 && <DropdownMenuSeparator />}
             {statuses.map((status) => {
-              const Icon = ICONS[status]
               const isActive =
                 mutation.isPending &&
                 mutation.variables?.id === booking.id &&
@@ -95,7 +86,7 @@ export function BookingActions({ booking, onView, variant = 'inline' }: BookingA
                   disabled={mutation.isPending}
                   onSelect={() => mutation.mutate({ id: booking.id, status })}
                 >
-                  {isActive ? <Loader2 className="animate-spin" /> : <Icon />}
+                  {isActive ? <Loader2 className="animate-spin" /> : null}
                   {LABELS[status]}
                 </DropdownMenuItem>
               )
@@ -110,12 +101,10 @@ export function BookingActions({ booking, onView, variant = 'inline' }: BookingA
     <div className="flex flex-wrap items-center justify-end gap-1.5">
       {onView && (
         <Button variant="ghost" size="sm" onClick={() => onView(booking)}>
-          <Eye className="h-4 w-4" />
           View
         </Button>
       )}
       {statuses.map((status) => {
-        const Icon = ICONS[status]
         return (
           <Button
             key={status}
@@ -128,7 +117,6 @@ export function BookingActions({ booking, onView, variant = 'inline' }: BookingA
             }
             onClick={() => mutation.mutate({ id: booking.id, status })}
           >
-            <Icon className="h-4 w-4" />
             {SHORT_LABELS[status]}
           </Button>
         )

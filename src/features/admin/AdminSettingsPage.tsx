@@ -59,6 +59,8 @@ export default function AdminSettingsPage() {
       cancellationPolicy: form.cancellationPolicy.trim(),
       bookingPolicy: form.bookingPolicy.trim(),
       maxGuests: Number(form.maxGuests),
+      latitude: form.latitude,
+      longitude: form.longitude,
     })
   }
 
@@ -123,6 +125,37 @@ export default function AdminSettingsPage() {
                 onChange={(e) => update({ description: e.target.value })}
               />
             </div>
+            <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="settings-latitude">Latitude</Label>
+                <Input
+                  id="settings-latitude"
+                  type="number"
+                  step="any"
+                  value={form.latitude ?? ''}
+                  onChange={(e) =>
+                    update({ latitude: e.target.value === '' ? null : Number(e.target.value) })
+                  }
+                  placeholder="14.5995"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="settings-longitude">Longitude</Label>
+                <Input
+                  id="settings-longitude"
+                  type="number"
+                  step="any"
+                  value={form.longitude ?? ''}
+                  onChange={(e) =>
+                    update({ longitude: e.target.value === '' ? null : Number(e.target.value) })
+                  }
+                  placeholder="121.0364"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Used to place the map pin on the landing page "Find us" section.
+            </p>
           </CardContent>
         </Card>
 

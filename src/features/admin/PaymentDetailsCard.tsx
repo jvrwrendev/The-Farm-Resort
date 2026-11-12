@@ -1,15 +1,11 @@
-import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
-  CheckCircle2,
   CircleDollarSign,
   ExternalLink,
   Loader2,
   Maximize2,
   Receipt,
-  XCircle,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -21,10 +17,8 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   getPaymentForBooking,
-  verifyPayment,
   type PaymentBookingType,
 } from '@/services/payment.service'
 import { cn, formatCurrency, formatStatus } from '@/lib/utils'
@@ -116,7 +110,6 @@ export interface PaymentDetailsCardProps {
   /** Optional price breakdown line, e.g. ₱2,500 × 3 nights. */
   lineItem?: { label: string; amount: number }
   className?: string
-  onChanged?: () => void
 }
 
 export function PaymentDetailsCard({
@@ -126,42 +119,11 @@ export function PaymentDetailsCard({
   fallbackStatus = 'unpaid',
   lineItem,
   className,
-  onChanged,
 }: PaymentDetailsCardProps) {
-  const queryClient = useQueryClient()
-  const [rejecting, setRejecting] = useState(false)
-  const [reason, setReason] = useState('')
-
   const { data: payment, isLoading } = useQuery({
     queryKey: ['payment', bookingType, reference],
     queryFn: () => getPaymentForBooking(bookingType, reference),
     enabled: Boolean(reference),
-  })
-
-  const mutation = useMutation({
-    mutationFn: ({ approve, rejectionReason }: { approve: boolean; rejectionReason?: string }) => {
-      if (!payment) throw new Error('No payment submission to verify.')
-      return verifyPayment(payment.id, approve, rejectionReason)
-    },
-    onSuccess: (_record, variables) => {
-      toast.success(
-        variables.approve
-          ? 'Payment approved. Booking marked as partially paid.'
-          : 'Payment rejected. Customer can re-submit a receipt.',
-      )
-      setRejecting(false)
-      setReason('')
-      queryClient.invalidateQueries({ queryKey: ['payment', bookingType, reference] })
-      queryClient.invalidateQueries({ queryKey: ['payment-records'] })
-      queryClient.invalidateQueries({ queryKey: ['admin-bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['admin-booking'] })
-      queryClient.invalidateQueries({ queryKey: ['pickleball'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
-      onChanged?.()
-    },
-    onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to update payment.')
-    },
   })
 
   const displayStatus: PaymentDisplayStatus = payment
@@ -173,7 +135,6 @@ export function PaymentDetailsCard({
   const downPayment = payment?.downPaymentAmount ?? roundAmount(totalAmount * 0.5)
   const remaining = payment?.remainingBalance ?? roundAmount(totalAmount - downPayment)
   const amountPaid = payment?.status === 'verified' ? payment.downPaymentAmount : 0
-  const canVerify = Boolean(payment) && payment?.status !== 'verified'
 
   return (
     <Card className={className}>
@@ -296,75 +257,9 @@ export function PaymentDetailsCard({
               </p>
             )}
 
-            {canVerify && (
-              <div className="space-y-3 border-t pt-4">
-                {rejecting ? (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor={`payment-reason-${payment?.id}`}>
-                        Rejection reason (optional)
-                      </Label>
-                      <Textarea
-                        id={`payment-reason-${payment?.id}`}
-                        rows={2}
-                        value={reason}
-                        onChange={(event) => setReason(event.target.value)}
-                        placeholder="e.g. Receipt amount does not match, unclear screenshot…"
-                      />
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() =>
-                          mutation.mutate({ approve: false, rejectionReason: reason.trim() || undefined })
-                        }
-                        loading={mutation.isPending}
-                      >
-                        <XCircle className="h-4 w-4" /> Confirm rejection
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setRejecting(false)
-                          setReason('')
-                        }}
-                        disabled={mutation.isPending}
-                      >
-                        Cancel
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => mutation.mutate({ approve: true })}
-                      loading={mutation.isPending}
-                    >
-                      <CheckCircle2 className="h-4 w-4" /> Approve payment
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => setRejecting(true)}
-                      disabled={mutation.isPending}
-                    >
-                      <XCircle className="h-4 w-4" /> Reject payment
-                    </Button>
-                    {payment?.receiptUrl && (
-                      <Button size="sm" variant="ghost" asChild>
-                        <a href={payment.receiptUrl} target="_blank" rel="noreferrer">
-                          <ExternalLink className="h-4 w-4" /> Open receipt
-                        </a>
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
+            <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              Payment approval is managed through the main Booking Actions (Approve / Reject). The receipt above is supporting evidence.
+            </div>
           </>
         )}
       </CardContent>

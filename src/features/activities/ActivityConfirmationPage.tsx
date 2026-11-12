@@ -28,6 +28,7 @@ const STATUS_VARIANTS: Record<
 > = {
   pending: 'warning',
   confirmed: 'success',
+  checked_in: 'success',
   completed: 'secondary',
   cancelled: 'destructive',
 }
@@ -35,7 +36,8 @@ const STATUS_VARIANTS: Record<
 const STATUS_LABELS: Record<ActivityBookingStatus, string> = {
   pending: 'Pending confirmation',
   confirmed: 'Confirmed',
-  completed: 'Completed',
+  checked_in: 'Rent In',
+  completed: 'Completed (Rent Out)',
   cancelled: 'Cancelled',
 }
 

@@ -46,6 +46,7 @@ const STATUS_OPTIONS: Array<{ value: PickleballBookingStatus | 'all'; label: str
   { value: 'all', label: 'All statuses' },
   { value: 'pending', label: 'Pending' },
   { value: 'confirmed', label: 'Confirmed' },
+  { value: 'checked_in', label: 'Checked in' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
 ]

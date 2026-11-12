@@ -35,6 +35,7 @@ export default function AdminCalendarPage() {
   const [visible, setVisible] = useState<Record<CalendarStatus, boolean>>({
     pending: true,
     confirmed: true,
+    checked_in: true,
     completed: true,
     cancelled: true,
   })

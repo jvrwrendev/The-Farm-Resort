@@ -159,7 +159,7 @@ export function ActivityCalendarPanel({
               days.map((day) => {
                 const key = format(day, 'yyyy-MM-dd')
                 const all = bookingsByDate.get(key) ?? []
-                const dayBookings = all.filter((booking) => visible[booking.status])
+                const dayBookings = all.filter((booking) => String(booking.status) !== 'rejected' && visible[(booking.status as unknown) as CalendarStatus])
                 const isSelected = !!selectedDate && isSameDay(day, selectedDate)
                 const isCurrentMonth = isSameMonth(day, currentMonth)
                 const today = isToday(day)

@@ -22,6 +22,8 @@ export async function updateSettings(updates: Partial<AppSettings>): Promise<App
   if (updates.email !== undefined) patch.email = updates.email
   if (updates.phone !== undefined) patch.phone = updates.phone
   if (updates.address !== undefined) patch.address = updates.address
+  if (updates.latitude !== undefined) patch.latitude = updates.latitude
+  if (updates.longitude !== undefined) patch.longitude = updates.longitude
   if (updates.description !== undefined) patch.description = updates.description
   if (updates.checkInTime !== undefined) patch.check_in_time = updates.checkInTime
   if (updates.checkOutTime !== undefined) patch.check_out_time = updates.checkOutTime

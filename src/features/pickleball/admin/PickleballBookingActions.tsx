@@ -1,11 +1,7 @@
-import type { ComponentType } from 'react'
 import {
-  BadgeCheck,
-  CheckCircle2,
   Eye,
   Loader2,
   MoreHorizontal,
-  XCircle,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -19,18 +15,13 @@ import {
 import type { PickleballBooking, PickleballBookingStatus } from '../types'
 import { usePickleballStatusMutation } from '../usePickleballStatusMutation'
 
-const ICONS: Record<PickleballBookingStatus, ComponentType<{ className?: string }>> = {
-  pending: BadgeCheck,
-  confirmed: BadgeCheck,
-  completed: CheckCircle2,
-  cancelled: XCircle,
-}
-
 const VARIANTS: Record<PickleballBookingStatus, 'default' | 'outline' | 'destructive'> = {
   pending: 'outline',
   confirmed: 'default',
+  checked_in: 'default',
   completed: 'outline',
   cancelled: 'destructive',
+  rejected: 'destructive',
 }
 
 function nextPickleballStatuses(
@@ -40,7 +31,9 @@ function nextPickleballStatuses(
     case 'pending':
       return ['confirmed', 'cancelled']
     case 'confirmed':
-      return ['completed', 'cancelled']
+      return ['checked_in', 'cancelled']
+    case 'checked_in':
+      return ['completed']
     default:
       return []
   }
@@ -48,7 +41,8 @@ function nextPickleballStatuses(
 
 function actionLabel(current: PickleballBookingStatus, target: PickleballBookingStatus): string {
   if (target === 'confirmed') return 'Approve reservation'
-  if (target === 'completed') return 'Mark as completed'
+  if (target === 'checked_in') return 'Check in'
+  if (target === 'completed') return 'Check out'
   if (target === 'cancelled') {
     return current === 'pending' ? 'Reject reservation' : 'Cancel reservation'
   }
@@ -57,7 +51,8 @@ function actionLabel(current: PickleballBookingStatus, target: PickleballBooking
 
 function shortLabel(current: PickleballBookingStatus, target: PickleballBookingStatus): string {
   if (target === 'confirmed') return 'Approve'
-  if (target === 'completed') return 'Complete'
+  if (target === 'checked_in') return 'Check-in'
+  if (target === 'completed') return 'Check-out'
   if (target === 'cancelled') return current === 'pending' ? 'Reject' : 'Cancel'
   return 'Pending'
 }
@@ -102,7 +97,6 @@ export function PickleballBookingActions({
             )}
             {onView && statuses.length > 0 && <DropdownMenuSeparator />}
             {statuses.map((status) => {
-              const Icon = ICONS[status]
               const isActive =
                 mutation.isPending &&
                 mutation.variables?.reference === booking.reference &&
@@ -117,7 +111,7 @@ export function PickleballBookingActions({
                     mutation.mutate({ reference: booking.reference, status })
                   }
                 >
-                  {isActive ? <Loader2 className="animate-spin" /> : <Icon />}
+                  {isActive ? <Loader2 className="animate-spin" /> : null}
                   {actionLabel(booking.status, status)}
                 </DropdownMenuItem>
               )
@@ -139,7 +133,6 @@ export function PickleballBookingActions({
   return (
     <div className="flex flex-wrap items-center gap-2">
       {statuses.map((status) => {
-        const Icon = ICONS[status]
         return (
           <Button
             key={status}
@@ -153,7 +146,6 @@ export function PickleballBookingActions({
             }
             onClick={() => mutation.mutate({ reference: booking.reference, status })}
           >
-            <Icon className="h-4 w-4" />
             {shortLabel(booking.status, status)}
           </Button>
         )

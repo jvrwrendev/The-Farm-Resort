@@ -12,6 +12,9 @@ import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { BRAND_NAME, BRAND_LOGO_URL, BRAND_LOGO_ALT } from '@/lib/brand'
 import { cn } from '@/lib/utils'
+import { useQuery } from '@tanstack/react-query'
+import { getSettings } from '@/services/settings.service'
+import { queryKeys } from '@/lib/queryKeys'
 
 type NavItem =
   | { type: 'link'; href: string; label: string; sectionId: string }
@@ -334,6 +337,13 @@ export function Navbar() {
 
 export function Footer() {
   const { user, isAdmin } = useAuth()
+  const { data: settings } = useQuery({
+    queryKey: queryKeys.resortSettings,
+    queryFn: getSettings,
+  })
+  const phone = settings?.phone || '+63 912 345 6789'
+  const address = settings?.address || 'Brgy. San Isidro, Antipolo City'
+  const email = settings?.email || 'stay@thefarm.ph'
   return (
     <footer id="contact" className="scroll-mt-28 border-t bg-muted/30 print:hidden">
       <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
@@ -341,7 +351,7 @@ export function Footer() {
           <div>
             <Link to="/" className="inline-flex items-center gap-2 mb-4">
               <img src={BRAND_LOGO_URL} alt={BRAND_LOGO_ALT} className="h-6 w-6 rounded-md object-cover" />
-              <span className="font-display font-semibold">{BRAND_NAME}</span>
+              <span className="font-display font-semibold">{settings?.resortName || BRAND_NAME}</span>
             </Link>
             <p className="text-sm text-muted-foreground">
               Your private farm retreat awaits. Exclusive booking for unforgettable memories.
@@ -354,13 +364,15 @@ export function Footer() {
               <li><a href="/#rooms" className="hover:text-foreground transition-colors">Accommodation</a></li>
               <li><Link to="/pickleball" className="hover:text-foreground transition-colors">Pickleball</Link></li>
               <li><a href="/#gallery" className="hover:text-foreground transition-colors">Gallery</a></li>
+              <li><a href="/#contact" className="hover:text-foreground transition-colors">Contact</a></li>
             </ul>
           </div>
           <div>
             <h4 className="font-semibold mb-3">Contact</h4>
             <ul className="space-y-2 text-sm text-muted-foreground">
-              <li>+63 912 345 6789</li>
-              <li>Brgy. San Isidro, Antipolo City</li>
+              <li>{phone}</li>
+              <li>{address}</li>
+              <li>{email}</li>
             </ul>
           </div>
         </div>

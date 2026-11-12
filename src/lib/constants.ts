@@ -4,7 +4,7 @@ export const DEFAULT_PRICE_PER_NIGHT = 7000
 export const DEFAULT_MAX_GUESTS = 25
 
 /** Statuses that block a date from being booked by another guest. */
-export const BLOCKING_STATUSES = ['pending', 'confirmed'] as const
+export const BLOCKING_STATUSES = ['pending', 'confirmed', 'checked_in'] as const
 
 /** Human-readable labels for each booking source. */
 export const BOOKING_TYPE_LABELS: Record<BookingTypeDb, string> = {

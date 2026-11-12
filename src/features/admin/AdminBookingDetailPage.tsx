@@ -1,26 +1,18 @@
 import { Link, useParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { ArrowLeft, CalendarDays, Clock, Mail, Phone, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { StatusBadge } from '@/features/admin/components'
 import { PaymentDetailsCard } from '@/features/admin/PaymentDetailsCard'
 import { getBookingByReference } from '@/services/booking.service'
-import { getPickleballBookingByReference } from '@/services/pickleballBooking.service'
-import { getActivityBookingByReference } from '@/services/activity.service'
-import { applyDiscount, completePayment, getPaymentForBooking } from '@/services/payment.service'
+import { updateBookingStatus } from '@/services/admin.service'
+import { getPickleballBookingByReference, updatePickleballBookingStatus } from '@/services/pickleballBooking.service'
+import { getActivityBookingByReference, updateActivityBookingStatus } from '@/services/activity.service'
+import { approveBooking, completePayment, getPaymentForBooking, rejectBooking } from '@/services/payment.service'
 import type { PaymentRecord } from '@/services/payment.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
@@ -102,6 +94,7 @@ export default function AdminBookingDetailPage() {
             </Card>
           </div>
           <div className="space-y-6">
+            <BookingStatusActions detailType="resort" reference={b.bookingReference} bookingId={b.id} status={b.status} onChanged={() => resortQuery.refetch()} />
             <PaymentDetailsCard
               bookingType="accommodation"
               reference={b.bookingReference}
@@ -109,7 +102,7 @@ export default function AdminBookingDetailPage() {
               fallbackStatus={b.paymentStatus}
               lineItem={{ label: `${formatCurrency(b.pricePerNight)} × ${b.numberOfNights} night(s)`, amount: b.totalAmount }}
             />
-            <DiscountAndCompleteSection payment={paymentQuery.data ?? null} bookingStatus={b.status} reference={b.bookingReference} type="accommodation" total={b.totalAmount} onChanged={() => paymentQuery.refetch()} />
+            <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
           </div>
         </div>
       </div>
@@ -146,6 +139,7 @@ export default function AdminBookingDetailPage() {
             </Card>
           </div>
           <div className="space-y-6">
+            <BookingStatusActions detailType="pickleball" reference={b.reference} bookingId={b.id} status={b.status} onChanged={() => pickleballQuery.refetch()} />
             <PaymentDetailsCard
               bookingType="pickleball"
               reference={b.reference}
@@ -153,7 +147,7 @@ export default function AdminBookingDetailPage() {
               fallbackStatus={b.paymentStatus}
               lineItem={{ label: `${formatCurrency(b.hourlyRate)} × ${b.durationHours} hour(s)`, amount: b.totalAmount }}
             />
-            <DiscountAndCompleteSection payment={paymentQuery.data ?? null} bookingStatus={b.status} reference={b.reference} type="pickleball" total={b.totalAmount} onChanged={() => paymentQuery.refetch()} />
+            <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
           </div>
         </div>
       </div>
@@ -190,6 +184,7 @@ export default function AdminBookingDetailPage() {
           </Card>
         </div>
         <div className="space-y-6">
+          <BookingStatusActions detailType={b.activityType === 'atv' ? 'atv' : 'billiards'} reference={b.reference} bookingId={b.id} status={b.status} onChanged={() => activityQuery.refetch()} />
           <PaymentDetailsCard
             bookingType={b.activityType}
             reference={b.reference}
@@ -197,7 +192,7 @@ export default function AdminBookingDetailPage() {
             fallbackStatus={b.paymentStatus}
             lineItem={{ label: `${formatCurrency(b.hourlyRate)} × ${b.durationHours} hour(s)`, amount: b.totalAmount }}
           />
-          <DiscountAndCompleteSection payment={paymentQuery.data ?? null} bookingStatus={b.status} reference={b.reference} type={b.activityType} total={b.totalAmount} onChanged={() => paymentQuery.refetch()} />
+          <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
         </div>
       </div>
     </div>
@@ -240,6 +235,105 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ cla
   )
 }
 
+function BookingStatusActions({
+  detailType,
+  reference,
+  bookingId,
+  status,
+  onChanged,
+}: {
+  detailType: 'resort' | 'pickleball' | 'atv' | 'billiards'
+  reference: string
+  bookingId: string
+  status: string
+  onChanged: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  const [rejectOpen, setRejectOpen] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
+
+  const paymentType = detailType === 'resort' ? 'accommodation' : detailType
+
+  const run = async (newStatus: string) => {
+    setBusy(true)
+    try {
+      if (newStatus === 'confirmed' && status === 'pending') {
+        await approveBooking(paymentType as 'accommodation' | 'pickleball' | 'atv' | 'billiards', reference)
+      } else if (newStatus === 'cancelled' && status === 'pending') {
+        await rejectBooking(paymentType as 'accommodation' | 'pickleball' | 'atv' | 'billiards', reference, rejectReason)
+        setRejectOpen(false)
+        setRejectReason('')
+      } else if (detailType === 'resort') {
+        await updateBookingStatus(bookingId, newStatus as AdminBooking['status'])
+      } else if (detailType === 'pickleball') {
+        await updatePickleballBookingStatus(reference, newStatus as 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'rejected')
+      } else {
+        await updateActivityBookingStatus(bookingId, newStatus as 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'rejected')
+      }
+      toast.success('Booking status updated.')
+      onChanged()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Failed to update status.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="font-display text-lg">Booking actions</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-wrap gap-2">
+        {status === 'pending' && (
+          <>
+            <Button type="button" onClick={() => run('confirmed')} disabled={busy}>Approve</Button>
+            <Button type="button" variant="outline" onClick={() => setRejectOpen(true)} disabled={busy}>Reject</Button>
+          </>
+        )}
+        {status === 'confirmed' && (
+          <>
+            <Button type="button" onClick={() => run('checked_in')} disabled={busy}>
+              {detailType === 'atv' || detailType === 'billiards' ? 'Rent In' : 'Check-in'}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setRejectOpen(true)} disabled={busy}>Cancel</Button>
+          </>
+        )}
+        {status === 'checked_in' && (
+          <Button type="button" onClick={() => run('completed')} disabled={busy}>
+            {detailType === 'atv' || detailType === 'billiards' ? 'Rent Out' : 'Check-out'}
+          </Button>
+        )}
+        {(status === 'completed' || status === 'cancelled' || status === 'rejected') && (
+          <p className="text-sm text-muted-foreground">No further status actions available.</p>
+        )}
+
+        {rejectOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-xl bg-background p-6 shadow-xl">
+              <h3 className="font-display text-lg font-semibold">Reject booking</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Provide a reason (optional). The customer will be notified.</p>
+              <div className="mt-3">
+                <textarea
+                  className="w-full rounded-md border bg-background p-2 text-sm"
+                  rows={3}
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Reason for rejection…"
+                />
+              </div>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setRejectOpen(false); setRejectReason('') }} disabled={busy}>Cancel</Button>
+                <Button variant="destructive" onClick={() => run('cancelled')} disabled={busy}>Confirm reject</Button>
+              </div>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
 function NotFound() {
   return (
     <Card>
@@ -251,54 +345,20 @@ function NotFound() {
   )
 }
 
-function DiscountAndCompleteSection({
+function CompletePaymentButton({
   payment,
   bookingStatus,
-  reference,
-  type,
-  total,
   onChanged,
 }: {
   payment: PaymentRecord | null
   bookingStatus: string
-  reference: string
-  type: 'accommodation' | 'pickleball' | 'atv' | 'billiards'
-  total: number
-  onChanged: () => void
+  onChanged?: () => void
 }) {
-  const [discountType, setDiscountType] = useState<'none' | 'fixed' | 'percent'>(payment?.discountType ?? 'none')
-  const [discountValue, setDiscountValue] = useState<string>(String(payment?.discountValue ?? 0))
-  const [applying, setApplying] = useState(false)
   const [completing, setCompleting] = useState(false)
   const [confirmOpen, setConfirmOpen] = useState(false)
 
-  const original = payment?.originalAmount ?? total
-  const discount = payment?.discountType === 'fixed'
-    ? Math.min(Number(payment.discountValue || 0), original)
-    : payment?.discountType === 'percent'
-      ? Math.round(original * (Number(payment.discountValue || 0) / 100) * 100) / 100
-      : 0
-  const finalTotal = payment?.totalAmount ?? total
-  const balance = payment?.remainingBalance ?? finalTotal
-  const canComplete = bookingStatus === 'completed' && balance > 0 && payment?.status !== 'paid'
-
-  const handleApply = async () => {
-    setApplying(true)
-    try {
-      await applyDiscount({
-        bookingType: type,
-        bookingReference: reference,
-        discountType,
-        discountValue: Number(discountValue || 0),
-      })
-      toast.success('Discount applied.')
-      onChanged()
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Failed to apply discount.')
-    } finally {
-      setApplying(false)
-    }
-  }
+  const balance = payment?.remainingBalance ?? 0
+  const canComplete = bookingStatus === 'completed' && balance > 0 && payment?.status !== 'paid' && !!payment
 
   const handleComplete = async () => {
     if (!payment) return
@@ -307,7 +367,7 @@ function DiscountAndCompleteSection({
       await completePayment(payment.id)
       toast.success('Payment completed. Balance set to ₱0.00.')
       setConfirmOpen(false)
-      onChanged()
+      onChanged?.()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to complete payment.')
     } finally {
@@ -315,66 +375,20 @@ function DiscountAndCompleteSection({
     }
   }
 
+  if (!canComplete) return null
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="font-display text-lg">Discount & payment completion</CardTitle>
+        <CardTitle className="font-display text-lg">Payment completion</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="rounded-xl border bg-muted/30 p-3">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Original amount</p>
-            <p className="mt-1 font-semibold">{formatCurrency(original)}</p>
-          </div>
-          <div className="rounded-xl border bg-muted/30 p-3">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Discount</p>
-            <p className="mt-1 font-semibold">{formatCurrency(discount)}</p>
-          </div>
-          <div className="rounded-xl border bg-primary/5 p-3">
-            <p className="text-xs font-medium uppercase tracking-wider text-primary">Final total</p>
-            <p className="mt-1 font-display text-lg font-bold text-primary">{formatCurrency(finalTotal)}</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div className="space-y-2">
-            <Label>Discount type</Label>
-            <Select value={discountType} onValueChange={(v) => setDiscountType(v as 'none' | 'fixed' | 'percent')}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                <SelectItem value="fixed">Fixed (₱)</SelectItem>
-                <SelectItem value="percent">Percentage (%)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Discount value</Label>
-            <Input
-              type="number"
-              min={0}
-              value={discountValue}
-              onChange={(e) => setDiscountValue(e.target.value)}
-              disabled={discountType === 'none'}
-            />
-          </div>
-          <div className="flex items-end">
-            <Button type="button" onClick={handleApply} loading={applying} className="w-full">
-              Apply discount
-            </Button>
-          </div>
-        </div>
-
-        {canComplete && (
-          <div className="border-t pt-4">
-            <p className="mb-2 text-sm text-muted-foreground">
-              Outstanding balance: <span className="font-semibold text-foreground">{formatCurrency(balance)}</span>. Complete payment to mark as paid.
-            </p>
-            <Button type="button" onClick={() => setConfirmOpen(true)}>
-              Complete payment
-            </Button>
-          </div>
-        )}
+        <p className="text-sm text-muted-foreground">
+          Outstanding balance: <span className="font-semibold text-foreground">{formatCurrency(balance)}</span>. Complete payment to mark as paid.
+        </p>
+        <Button type="button" onClick={() => setConfirmOpen(true)}>
+          Complete payment
+        </Button>
 
         {confirmOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">

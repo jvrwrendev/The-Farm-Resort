@@ -1,6 +1,6 @@
 export type ActivityType = 'billiards' | 'atv'
 
-export type ActivityBookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
+export type ActivityBookingStatus = 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'rejected'
 
 export type ActivityUnitStatus = 'available' | 'maintenance'
 

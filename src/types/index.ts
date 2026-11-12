@@ -11,7 +11,7 @@
 // ---------------------------------------------------------------------
 
 export type AppRole = 'admin' | 'customer'
-export type BookingStatusDb = 'pending' | 'confirmed' | 'cancelled' | 'completed'
+export type BookingStatusDb = 'pending' | 'confirmed' | 'checked_in' | 'cancelled' | 'completed' | 'rejected'
 export type PaymentStatusDb = 'unpaid' | 'pending_verification' | 'partially_paid' | 'paid' | 'rejected'
 export type DayPeriodDb = 'AM' | 'PM'
 /** How a reservation was created (channel / source). Mirrors the `booking_type` enum. */
@@ -63,6 +63,8 @@ export interface ResortSettingsRow {
   email: string
   phone: string
   address: string
+  latitude: number | null
+  longitude: number | null
   description: string
   check_in_time: string
   check_out_time: string
@@ -223,7 +225,7 @@ export interface Database {
 // existing imports continue to work without changes.
 // ---------------------------------------------------------------------
 
-export type AdminBookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
+export type AdminBookingStatus = 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'rejected'
 export type PaymentStatus = 'unpaid' | 'pending_verification' | 'partially_paid' | 'paid' | 'rejected'
 export type AccommodationStatus = 'available' | 'unavailable'
 
@@ -333,6 +335,8 @@ export interface AppSettings {
   email: string
   phone: string
   address: string
+  latitude: number | null
+  longitude: number | null
   description: string
   checkInTime: string
   checkOutTime: string

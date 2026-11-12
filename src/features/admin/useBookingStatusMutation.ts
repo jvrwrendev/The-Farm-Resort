@@ -31,7 +31,9 @@ export function nextStatuses(status: AdminBooking['status']): AdminBookingStatus
     case 'pending':
       return ['confirmed', 'cancelled']
     case 'confirmed':
-      return ['completed', 'cancelled']
+      return ['checked_in', 'cancelled']
+    case 'checked_in':
+      return ['completed']
     case 'completed':
       return []
     case 'cancelled':

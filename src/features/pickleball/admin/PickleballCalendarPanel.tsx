@@ -134,7 +134,7 @@ export function PickleballCalendarPanel({
 
   const selectedKey = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null
   const selectedDayAll = selectedKey ? bookingsByDate.get(selectedKey) ?? [] : []
-  const selectedDayBookings = selectedDayAll.filter((booking) => visible[booking.status])
+  const selectedDayBookings = selectedDayAll.filter((booking) => booking.status !== 'rejected' && visible[booking.status as CalendarStatus])
 
   const openDetails = (booking: PickleballBooking) =>
     navigate(`/admin/pickleball/${encodeURIComponent(booking.reference)}`, {
@@ -165,7 +165,7 @@ export function PickleballCalendarPanel({
               days.map((day) => {
                 const key = format(day, 'yyyy-MM-dd')
                 const all = bookingsByDate.get(key) ?? []
-                const dayBookings = all.filter((booking) => visible[booking.status])
+                const dayBookings = all.filter((booking) => booking.status !== 'rejected' && visible[booking.status as CalendarStatus])
                 const isSelected = !!selectedDate && isSameDay(day, selectedDate)
                 const isCurrentMonth = isSameMonth(day, currentMonth)
                 const today = isToday(day)
@@ -225,7 +225,7 @@ export function PickleballCalendarPanel({
                           )} Court`}
                           className={cn(
                             'flex items-center gap-1 truncate rounded border px-1 py-0.5 text-[10px] font-medium transition-opacity hover:opacity-80 sm:text-[11px]',
-                            CALENDAR_STATUS_CHIP[booking.status],
+                            CALENDAR_STATUS_CHIP[(booking.status === 'rejected' ? 'cancelled' : booking.status) as CalendarStatus],
                           )}
                         >
                           <span className="font-semibold">{compactTime(booking.startTime)}</span>

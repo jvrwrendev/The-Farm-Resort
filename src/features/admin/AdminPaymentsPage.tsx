@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import {
-  CheckCircle2,
   CreditCard,
   ImagePlus,
   Loader2,
@@ -10,7 +9,6 @@ import {
   Receipt,
   Save,
   Upload,
-  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -25,7 +23,6 @@ import {
   listPaymentRecords,
   updatePaymentSettings,
   uploadPaymentQr,
-  verifyPayment,
   type PaymentRecord,
   type PaymentSettings,
 } from '@/services/payment.service'
@@ -66,8 +63,6 @@ export default function AdminPaymentsPage() {
   const [form, setForm] = useState<PaymentSettings | null>(null)
   const [qrFile, setQrFile] = useState<File | null>(null)
   const [qrPreview, setQrPreview] = useState('')
-  const [rejectingId, setRejectingId] = useState<string | null>(null)
-  const [rejectReason, setRejectReason] = useState('')
 
   useEffect(() => {
     if (settings) setForm({ ...settings })
@@ -98,23 +93,6 @@ export default function AdminPaymentsPage() {
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Failed to save settings.')
-    },
-  })
-
-  const verifyMutation = useMutation({
-    mutationFn: ({ id, approve, reason }: { id: string; approve: boolean; reason?: string }) =>
-      verifyPayment(id, approve, reason),
-    onSuccess: (_, variables) => {
-      toast.success(variables.approve ? 'Payment verified. Booking marked as partially paid.' : 'Payment rejected.')
-      setRejectingId(null)
-      setRejectReason('')
-      queryClient.invalidateQueries({ queryKey: ['payment-records'] })
-      queryClient.invalidateQueries({ queryKey: ['admin-bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
-      queryClient.invalidateQueries({ queryKey: ['pickleball'] })
-    },
-    onError: (error: unknown) => {
-      toast.error(error instanceof Error ? error.message : 'Failed to update payment.')
     },
   })
 
@@ -296,54 +274,15 @@ export default function AdminPaymentsPage() {
                               <div><p className="text-xs text-muted-foreground">Submitted</p><p className="font-medium">{formatDate(record.createdAt)}</p></div>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              <Button
-                                size="sm"
-                                onClick={() => verifyMutation.mutate({ id: record.id, approve: true })}
-                                loading={verifyMutation.isPending}
-                              >
-                                <CheckCircle2 className="h-4 w-4" /> Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-destructive hover:text-destructive"
-                                onClick={() => setRejectingId(record.id)}
-                              >
-                                <XCircle className="h-4 w-4" /> Reject
-                              </Button>
                               {record.receiptUrl && (
                                 <Button size="sm" variant="ghost" asChild>
                                   <a href={record.receiptUrl} target="_blank" rel="noreferrer">View receipt</a>
                                 </Button>
                               )}
+                              <span className="text-xs text-muted-foreground">
+                                Approval is managed in the Bookings section.
+                              </span>
                             </div>
-                            {rejectingId === record.id && (
-                              <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
-                                <Label htmlFor={`reason-${record.id}`}>Rejection reason (optional)</Label>
-                                <Textarea
-                                  id={`reason-${record.id}`}
-                                  rows={2}
-                                  value={rejectReason}
-                                  onChange={(e) => setRejectReason(e.target.value)}
-                                  placeholder="e.g. Receipt amount does not match, unclear screenshot…"
-                                />
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="destructive"
-                                    onClick={() =>
-                                      verifyMutation.mutate({ id: record.id, approve: false, reason: rejectReason })
-                                    }
-                                    loading={verifyMutation.isPending}
-                                  >
-                                    Confirm rejection
-                                  </Button>
-                                  <Button size="sm" variant="ghost" onClick={() => { setRejectingId(null); setRejectReason('') }}>
-                                    Cancel
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
                           </div>
                         </div>
                       </div>

@@ -343,6 +343,12 @@ function SelectedEventDetails({ event }: { event: CalendarEvent }) {
       message: 'This date is fully booked. Please choose another date.',
       Icon: Lock,
     },
+    checked_in: {
+      label: 'Checked in',
+      className: 'bg-primary text-primary-foreground border-primary',
+      message: 'This date is fully booked. Please choose another date.',
+      Icon: Lock,
+    },
     completed: {
       label: 'Completed',
       className: 'bg-muted text-muted-foreground border-border',

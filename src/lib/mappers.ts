@@ -68,6 +68,8 @@ export function mapResortSettings(row: ResortSettingsRow): AppSettings {
     email: row.email ?? '',
     phone: row.phone ?? '',
     address: row.address ?? '',
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
     description: row.description ?? '',
     checkInTime: row.check_in_time,
     checkOutTime: row.check_out_time,

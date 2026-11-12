@@ -3,14 +3,7 @@ import { useNavigate } from 'react-router-dom'
 
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
-import {
-  CheckCircle2,
-  Eye,
-  MoreVertical,
-  Receipt,
-  Search,
-  XCircle,
-} from 'lucide-react'
+import { MoreVertical, Search } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -58,6 +51,7 @@ import type { AdminBooking } from '@/types'
 import type { PickleballBooking } from '@/features/pickleball/types'
 import type { ActivityBooking } from '@/features/activities/types'
 import type { PaymentBookingType } from '@/services/payment.service'
+import { approveBooking, rejectBooking } from '@/services/payment.service'
 
 type TabKey = 'resort' | 'pickleball' | 'atv' | 'billiards'
 
@@ -72,6 +66,7 @@ const STATUS_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'all', label: 'All statuses' },
   { value: 'pending', label: 'Pending' },
   { value: 'confirmed', label: 'Confirmed' },
+  { value: 'checked_in', label: 'Checked in' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
 ]
@@ -145,17 +140,23 @@ export default function AdminBookingsPage() {
 
   const handleStatusChange = async (tab: TabKey, idOrRef: string, newStatus: string) => {
     try {
-      if (tab === 'resort') {
-        await updateBookingStatus(idOrRef, newStatus as AdminBooking['status'])
-      } else if (tab === 'pickleball') {
-        await updatePickleballBookingStatus(idOrRef, newStatus as PickleballBooking['status'])
+      const pType = paymentTypeFor(tab)
+      if (newStatus === 'confirmed') {
+        await approveBooking(pType, idOrRef)
       } else {
-        await updateActivityBookingStatus(idOrRef, newStatus as ActivityBooking['status'])
+        if (tab === 'resort') {
+          await updateBookingStatus(idOrRef, newStatus as AdminBooking['status'])
+        } else if (tab === 'pickleball') {
+          await updatePickleballBookingStatus(idOrRef, newStatus as PickleballBooking['status'])
+        } else {
+          await updateActivityBookingStatus(idOrRef, newStatus as ActivityBooking['status'])
+        }
       }
       toast.success('Booking status updated.')
       queryClient.invalidateQueries({ queryKey: queryKeys.adminBookings() })
       queryClient.invalidateQueries({ queryKey: ['pickleball'] })
       queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
+      queryClient.invalidateQueries({ queryKey: ['payment-records'] })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update status.')
     }
@@ -320,16 +321,37 @@ export default function AdminBookingsPage() {
                           {row.status === 'pending' && (
                             <>
                               <DropdownMenuItem onClick={() => handleStatusChange(tab, row.id, 'confirmed')}>
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Approve
+                                Approve
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleStatusChange(tab, row.id, 'cancelled')} className="text-destructive focus:text-destructive">
-                                <XCircle className="h-4 w-4" /> Cancel
+                              <DropdownMenuItem onClick={async () => {
+                                try {
+                                  await rejectBooking(pType, row.reference)
+                                  toast.success('Booking rejected.')
+                                  queryClient.invalidateQueries({ queryKey: queryKeys.adminBookings() })
+                                  queryClient.invalidateQueries({ queryKey: ['pickleball'] })
+                                  queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
+                                  queryClient.invalidateQueries({ queryKey: ['payment-records'] })
+                                } catch (e) {
+                                  toast.error(e instanceof Error ? e.message : 'Failed to reject.')
+                                }
+                              }} className="text-destructive focus:text-destructive">
+                                Reject
                               </DropdownMenuItem>
                             </>
                           )}
                           {row.status === 'confirmed' && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleStatusChange(tab, row.id, 'checked_in')}>
+                                {tab === 'atv' || tab === 'billiards' ? 'Rent In' : 'Check-in'}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleStatusChange(tab, row.id, 'cancelled')} className="text-destructive focus:text-destructive">
+                                Cancel
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {row.status === 'checked_in' && (
                             <DropdownMenuItem onClick={() => handleStatusChange(tab, row.id, 'completed')}>
-                              <CheckCircle2 className="h-4 w-4" /> Complete
+                              {tab === 'atv' || tab === 'billiards' ? 'Rent Out' : 'Check-out'}
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>

@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import {
   Banknote,
-  CheckCircle2,
   CircleDot,
   Gauge,
   Hash,
@@ -12,13 +11,11 @@ import {
   MoreVertical,
   Pencil,
   Plus,
-  Receipt,
   Search,
   Trash2,
   Upload,
   Users,
   Wrench,
-  XCircle,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
@@ -58,6 +55,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { approveBooking, rejectBooking } from '@/services/payment.service'
 import { PaymentDetailsCard, PaymentStatusBadge } from '@/features/admin/PaymentDetailsCard'
 import type {
   ActivityBooking,
@@ -106,7 +104,8 @@ const STATUS_OPTIONS: Array<{ value: ActivityBookingStatus | 'all'; label: strin
   { value: 'all', label: 'All statuses' },
   { value: 'pending', label: 'Pending' },
   { value: 'confirmed', label: 'Confirmed' },
-  { value: 'completed', label: 'Completed' },
+  { value: 'checked_in', label: 'Rent In' },
+  { value: 'completed', label: 'Completed (Rent Out)' },
   { value: 'cancelled', label: 'Cancelled' },
 ]
 
@@ -831,21 +830,49 @@ function AdminActivityTab({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem onClick={() => setPaymentBooking(booking)}>
-                            <Receipt className="h-4 w-4 text-primary" /> Payment / receipt
+                            Payment / receipt
                           </DropdownMenuItem>
                           {booking.status === 'pending' && (
                             <>
-                              <DropdownMenuItem onClick={() => handleBookingStatus(booking.id, 'confirmed')}>
-                                <CheckCircle2 className="h-4 w-4 text-emerald-600" /> Approve
+                              <DropdownMenuItem onClick={async () => {
+                                try {
+                                  await approveBooking(booking.activityType, booking.reference)
+                                  toast.success('Booking approved.')
+                                  queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
+                                  queryClient.invalidateQueries({ queryKey: ['payment-records'] })
+                                } catch (e) {
+                                  toast.error(e instanceof Error ? e.message : 'Failed to approve.')
+                                }
+                              }}>
+                                Approve
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleBookingStatus(booking.id, 'cancelled')} className="text-destructive focus:text-destructive">
-                                <XCircle className="h-4 w-4" /> Cancel
+                              <DropdownMenuItem onClick={async () => {
+                                try {
+                                  await rejectBooking(booking.activityType, booking.reference)
+                                  toast.success('Booking rejected.')
+                                  queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
+                                  queryClient.invalidateQueries({ queryKey: ['payment-records'] })
+                                } catch (e) {
+                                  toast.error(e instanceof Error ? e.message : 'Failed to reject.')
+                                }
+                              }} className="text-destructive focus:text-destructive">
+                                Reject
                               </DropdownMenuItem>
                             </>
                           )}
                           {booking.status === 'confirmed' && (
+                            <>
+                              <DropdownMenuItem onClick={() => handleBookingStatus(booking.id, 'checked_in')}>
+                                Rent In
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleBookingStatus(booking.id, 'cancelled')} className="text-destructive focus:text-destructive">
+                                Cancel
+                              </DropdownMenuItem>
+                            </>
+                          )}
+                          {booking.status === 'checked_in' && (
                             <DropdownMenuItem onClick={() => handleBookingStatus(booking.id, 'completed')}>
-                              <CheckCircle2 className="h-4 w-4" /> Complete
+                              Rent Out
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>

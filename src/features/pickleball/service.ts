@@ -80,7 +80,7 @@ export function getPickleballStats(
     (stats, booking) => {
       stats.total += 1
       stats[booking.status] += 1
-      if (booking.status === 'confirmed' || booking.status === 'completed') {
+      if (booking.status === 'confirmed' || booking.status === 'checked_in' || booking.status === 'completed') {
         stats.revenue += booking.totalAmount
       }
       if (booking.bookingDate === today && booking.status !== 'cancelled') {
@@ -92,8 +92,10 @@ export function getPickleballStats(
       total: 0,
       pending: 0,
       confirmed: 0,
+      checked_in: 0,
       completed: 0,
       cancelled: 0,
+      rejected: 0,
       revenue: 0,
       today: 0,
     },

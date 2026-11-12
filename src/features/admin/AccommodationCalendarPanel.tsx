@@ -69,7 +69,7 @@ export function AccommodationCalendarPanel({
       }
     }
     for (const list of map.values()) {
-      list.sort((a, b) => CALENDAR_STATUS_PRIORITY[a.status] - CALENDAR_STATUS_PRIORITY[b.status])
+      list.sort((a, b) => CALENDAR_STATUS_PRIORITY[(a.status === 'rejected' ? 'cancelled' : a.status) as CalendarStatus] - CALENDAR_STATUS_PRIORITY[(b.status === 'rejected' ? 'cancelled' : b.status) as CalendarStatus])
     }
     return map
   }, [bookings])
@@ -110,7 +110,7 @@ export function AccommodationCalendarPanel({
 
   const selectedKey = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null
   const selectedDayAll = selectedKey ? bookingsByDate.get(selectedKey) ?? [] : []
-  const selectedDayBookings = selectedDayAll.filter((booking) => visible[booking.status])
+  const selectedDayBookings = selectedDayAll.filter((booking) => String(booking.status) !== 'rejected' && visible[((String(booking.status) === 'rejected' ? 'cancelled' : booking.status) as unknown) as CalendarStatus])
   const selectedDayBlocking = selectedDayAll.some((booking) => isBlockingStatus(booking.status))
 
   return (
@@ -138,7 +138,7 @@ export function AccommodationCalendarPanel({
                 const key = format(day, 'yyyy-MM-dd')
                 const all = bookingsByDate.get(key) ?? []
                 const blocking = all.some((booking) => isBlockingStatus(booking.status))
-                const dayBookings = all.filter((booking) => visible[booking.status])
+                const dayBookings = all.filter((booking) => String(booking.status) !== 'rejected' && visible[((String(booking.status) === 'rejected' ? 'cancelled' : booking.status) as unknown) as CalendarStatus])
                 const isSelected = !!selectedDate && isSameDay(day, selectedDate)
                 const isCurrentMonth = isSameMonth(day, currentMonth)
                 const today = isToday(day)
@@ -186,7 +186,7 @@ export function AccommodationCalendarPanel({
                           title={`${booking.customerName} · ${booking.bookingReference}`}
                           className={cn(
                             'flex items-center gap-1 truncate rounded border px-1 py-0.5 text-[10px] font-medium transition-opacity hover:opacity-80 sm:text-[11px]',
-                            CALENDAR_STATUS_CHIP[booking.status],
+                            CALENDAR_STATUS_CHIP[(booking.status === 'rejected' ? 'cancelled' : booking.status) as CalendarStatus],
                           )}
                         >
                           {booking.checkIn === key && <span className="font-bold">In</span>}

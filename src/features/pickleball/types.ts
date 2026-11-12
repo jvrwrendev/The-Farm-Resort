@@ -1,4 +1,4 @@
-export type PickleballBookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
+export type PickleballBookingStatus = 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'rejected'
 
 export type PickleballSlotStatus = 'available' | 'reserved' | 'past'
 
@@ -106,8 +106,10 @@ export interface PickleballStats {
   total: number
   pending: number
   confirmed: number
+  checked_in: number
   completed: number
   cancelled: number
+  rejected: number
   revenue: number
   today: number
 }
