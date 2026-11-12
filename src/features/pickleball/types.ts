@@ -63,6 +63,9 @@ export interface PickleballBooking {
   totalAmount: number
   status: PickleballBookingStatus
   paymentStatus: PaymentStatus
+  bookingSource: 'online' | 'manual'
+  checkInAt: string | null
+  checkOutAt: string | null
   createdAt: string
   updatedAt: string
 }

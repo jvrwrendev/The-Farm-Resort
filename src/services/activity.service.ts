@@ -69,6 +69,9 @@ interface ActivityBookingRow {
   total_amount: number
   status: ActivityBookingStatus
   payment_status?: string | null
+  booking_source?: string | null
+  check_in_at?: string | null
+  check_out_at?: string | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -144,6 +147,9 @@ function rowToBooking(row: ActivityBookingRow): ActivityBooking {
     totalAmount: Number(row.total_amount),
     status: row.status,
     paymentStatus: (row.payment_status as ActivityBooking['paymentStatus']) ?? 'unpaid',
+    bookingSource: (row.booking_source as ActivityBooking['bookingSource']) ?? 'online',
+    checkInAt: row.check_in_at ?? null,
+    checkOutAt: row.check_out_at ?? null,
     notes: row.notes ?? '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,

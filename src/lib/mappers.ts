@@ -47,6 +47,8 @@ export function mapBookingRowToAdmin(row: BookingRow): AdminBooking {
     checkOut: row.check_out,
     checkInPeriod: row.check_in_period,
     checkOutPeriod: row.check_out_period,
+    checkInTime: row.check_in_time ?? null,
+    checkOutTime: row.check_out_time ?? null,
     adults: row.adults,
     children: row.children,
     specialRequests: row.special_requests ?? '',
@@ -56,6 +58,9 @@ export function mapBookingRowToAdmin(row: BookingRow): AdminBooking {
     status: row.status as AdminBookingStatus,
     paymentStatus: row.payment_status as PaymentStatus,
     bookingType: row.booking_type,
+    bookingSource: row.booking_source ?? 'online',
+    checkInAt: row.check_in_at ?? null,
+    checkOutAt: row.check_out_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

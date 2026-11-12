@@ -22,6 +22,9 @@ interface PickleballBookingRow {
   total_amount: number
   status: PickleballBookingStatus
   payment_status?: string | null
+  booking_source?: string | null
+  check_in_at?: string | null
+  check_out_at?: string | null
   notes: string | null
   created_at: string
   updated_at: string
@@ -59,6 +62,9 @@ function rowToBooking(row: PickleballBookingRow): PickleballBooking {
     totalAmount: Number(row.total_amount),
     status: row.status,
     paymentStatus: (row.payment_status as PickleballBooking['paymentStatus']) ?? 'unpaid',
+    bookingSource: (row.booking_source as PickleballBooking['bookingSource']) ?? 'online',
+    checkInAt: row.check_in_at ?? null,
+    checkOutAt: row.check_out_at ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

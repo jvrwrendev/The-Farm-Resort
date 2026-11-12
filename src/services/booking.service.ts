@@ -34,6 +34,8 @@ export async function createBooking(
     p_check_out: input.checkOut,
     p_check_in_period: input.checkInPeriod ?? 'PM',
     p_check_out_period: input.checkOutPeriod ?? 'PM',
+    p_check_in_time: input.checkInTime ?? null,
+    p_check_out_time: input.checkOutTime ?? null,
     p_guests: guests,
     p_adults: input.adults,
     p_children: input.children,

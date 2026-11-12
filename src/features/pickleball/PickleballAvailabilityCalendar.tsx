@@ -110,7 +110,7 @@ const DAY_STYLES: Record<DayState, string> = {
   past: 'bg-transparent text-muted-foreground/50 border border-transparent cursor-not-allowed line-through decoration-muted-foreground/30',
 }
 
-export function PickleballAvailabilityCalendar() {
+export function PickleballAvailabilityCalendar({ onDateSelect, compact = false }: { onDateSelect?: (date: Date) => void; compact?: boolean } = {}) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
   const [selectedDate, setSelectedDate] = useState<Date | null>(null)
 
@@ -168,7 +168,7 @@ export function PickleballAvailabilityCalendar() {
   }
 
   return (
-    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+    <div className={compact ? '' : 'grid grid-cols-1 gap-6 lg:grid-cols-2'}>
       <div className="overflow-hidden rounded-2xl border bg-card lg:sticky lg:top-24 lg:self-start">
         <div className="flex items-center justify-between gap-3 border-b bg-secondary/50 px-5 py-4 sm:px-6">
           <div>
@@ -220,8 +220,12 @@ export function PickleballAvailabilityCalendar() {
               <button
                 key={key}
                 type="button"
-                onClick={() => !past && setSelectedDate(day)}
-                disabled={past}
+                onClick={() => {
+                  if (past || state === 'full') return
+                  setSelectedDate(day)
+                  onDateSelect?.(day)
+                }}
+                disabled={past || state === 'full'}
                 aria-label={format(day, 'PPP')}
                 aria-current={isToday(day) ? 'date' : undefined}
                 aria-pressed={isSelected}
@@ -253,6 +257,7 @@ export function PickleballAvailabilityCalendar() {
           })}
         </div>
 
+        {!compact && (
         <div className="border-t bg-secondary/30 px-4 py-3 sm:px-6 sm:py-4">
           <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
             Legend
@@ -267,8 +272,10 @@ export function PickleballAvailabilityCalendar() {
             <LegendDot className="border border-border/50 bg-transparent" label="Past" />
           </div>
         </div>
+        )}
       </div>
 
+      {!compact && (
       <div className="overflow-hidden rounded-2xl border bg-card lg:sticky lg:top-24 lg:self-start">
         {selectedDate && selectedAvailability ? (
           <>
@@ -372,6 +379,7 @@ export function PickleballAvailabilityCalendar() {
            </div>
          )}
       </div>
+      )}
     </div>
   )
 }

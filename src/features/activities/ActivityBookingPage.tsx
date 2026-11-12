@@ -144,10 +144,14 @@ export default function ActivityBookingPage({
     }
   }, [activity, setValue, watch])
 
-  const startOptions = useMemo(
-    () => (activity ? generateTimeOptions(activity.openTime, activity.closeTime, 30) : []),
-    [activity],
-  )
+  const startOptions = useMemo(() => {
+    if (!activity) return []
+    const opts = generateTimeOptions(activity.openTime, activity.closeTime, 30)
+    const today = format(new Date(), 'yyyy-MM-dd')
+    if (bookingDate !== today) return opts
+    const nowMin = new Date().getHours() * 60 + new Date().getMinutes()
+    return opts.filter((t) => timeToMinutes(t) > nowMin)
+  }, [activity, bookingDate])
 
   const maxDuration = useMemo(() => {
     if (!activity || !startTime) return 0
@@ -197,6 +201,14 @@ export default function ActivityBookingPage({
   const mutation = useMutation({
     mutationFn: async (values: ActivityBookingFormValues) => {
       if (!activity) throw new Error('Activity not available.')
+      const now = new Date()
+      const todayStr = format(now, 'yyyy-MM-dd')
+      if (values.bookingDate === todayStr) {
+        const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+        if (toMin(values.startTime) < now.getHours() * 60 + now.getMinutes()) {
+          throw new Error('The selected start time has already passed.')
+        }
+      }
       return createActivityBooking({
         activityId: activity.id,
         unitId: values.unitId,

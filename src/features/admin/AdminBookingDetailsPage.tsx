@@ -132,8 +132,8 @@ export default function AdminBookingDetailsPage() {
               <CardTitle className="font-display text-lg">Stay details</CardTitle>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-              <InfoRow icon={CalendarDays} label="Check-in" value={`${format(parseISO(booking.checkIn), 'EEEE, MMM d, yyyy')}${booking.checkInPeriod ? ` · ${booking.checkInPeriod}` : ''}`} />
-              <InfoRow icon={CalendarDays} label="Check-out" value={`${format(parseISO(booking.checkOut), 'EEEE, MMM d, yyyy')}${booking.checkOutPeriod ? ` · ${booking.checkOutPeriod}` : ''}`} />
+              <InfoRow icon={CalendarDays} label="Check-in" value={`${format(parseISO(booking.checkIn), 'MMM d, yyyy')}${booking.checkInPeriod ? ` · ${booking.checkInPeriod}` : ''}${booking.checkInTime ? ` · ${booking.checkInTime}` : ''}`} />
+              <InfoRow icon={CalendarDays} label="Check-out" value={`${format(parseISO(booking.checkOut), 'MMM d, yyyy')}${booking.checkOutPeriod ? ` · ${booking.checkOutPeriod}` : ''}${booking.checkOutTime ? ` · ${booking.checkOutTime}` : ''}`} />
               <InfoRow icon={Clock} label="Number of nights" value={`${booking.numberOfNights} night(s)`} />
               <InfoRow icon={Users} label="Accommodation" value="Exclusive Resort Accommodation" />
               <InfoRow

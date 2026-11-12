@@ -16,8 +16,10 @@ export const bookingSchema = z
       .max(20, 'Contact number is too long.'),
     checkIn: z.string().min(1, 'Select a check-in date.'),
     checkInPeriod: z.enum(['AM', 'PM']),
+    checkInTime: z.string().optional(),
     checkOut: z.string().min(1, 'Select a check-out date.'),
     checkOutPeriod: z.enum(['AM', 'PM']),
+    checkOutTime: z.string().optional(),
     adults: z.coerce
       .number({ invalid_type_error: 'Please enter a number.' })
       .int('Please enter a whole number.')

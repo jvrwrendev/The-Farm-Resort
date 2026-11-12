@@ -60,6 +60,9 @@ export interface ActivityBooking {
   totalAmount: number
   status: ActivityBookingStatus
   paymentStatus: PaymentStatus
+  bookingSource: 'online' | 'manual'
+  checkInAt: string | null
+  checkOutAt: string | null
   notes: string
   createdAt: string
   updatedAt: string

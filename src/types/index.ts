@@ -84,6 +84,8 @@ export interface BookingRow {
   check_out: string
   check_in_period: DayPeriodDb
   check_out_period: DayPeriodDb
+  check_in_time: string | null
+  check_out_time: string | null
   guests: number
   adults: number
   children: number
@@ -96,6 +98,9 @@ export interface BookingRow {
   special_requests: string
   user_id: string | null
   booking_type: BookingTypeDb
+  booking_source: 'online' | 'manual'
+  check_in_at: string | null
+  check_out_at: string | null
   created_at: string
   updated_at: string
 }
@@ -266,6 +271,8 @@ export interface AdminBooking {
   checkOut: string
   checkInPeriod?: 'AM' | 'PM'
   checkOutPeriod?: 'AM' | 'PM'
+  checkInTime?: string | null
+  checkOutTime?: string | null
   adults: number
   children: number
   specialRequests: string
@@ -275,6 +282,9 @@ export interface AdminBooking {
   status: AdminBookingStatus
   paymentStatus: PaymentStatus
   bookingType: BookingTypeDb
+  bookingSource: 'online' | 'manual'
+  checkInAt: string | null
+  checkOutAt: string | null
   createdAt: string
   updatedAt: string
 }
@@ -354,6 +364,8 @@ export interface CreateBookingInput {
   checkOut: string
   checkInPeriod?: 'AM' | 'PM'
   checkOutPeriod?: 'AM' | 'PM'
+  checkInTime?: string | null
+  checkOutTime?: string | null
   adults: number
   children: number
   specialRequests?: string
@@ -368,6 +380,8 @@ export interface AdminCreateBookingInput {
   checkOut: string
   checkInPeriod?: 'AM' | 'PM'
   checkOutPeriod?: 'AM' | 'PM'
+  checkInTime?: string | null
+  checkOutTime?: string | null
   guests: number
   adults: number
   children: number

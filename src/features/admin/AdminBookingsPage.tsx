@@ -39,6 +39,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { PageHeading, StatusBadge } from '@/features/admin/components'
+import AdminManualBookingDialog from '@/features/admin/AdminManualBookingDialog'
 import { PaymentDetailsCard, PaymentStatusBadge } from '@/features/admin/PaymentDetailsCard'
 import { getBookings, type BookingFilters } from '@/services/admin.service'
 import { listPickleballBookings } from '@/services/pickleballBooking.service'
@@ -52,6 +53,7 @@ import type { PickleballBooking } from '@/features/pickleball/types'
 import type { ActivityBooking } from '@/features/activities/types'
 import type { PaymentBookingType } from '@/services/payment.service'
 import { approveBooking, rejectBooking } from '@/services/payment.service'
+import { sendBookingConfirmation } from '@/services/email.service'
 
 type TabKey = 'resort' | 'pickleball' | 'atv' | 'billiards'
 
@@ -89,6 +91,7 @@ interface RowData {
   total: number
   status: string
   paymentStatus: string
+  bookingSource: 'online' | 'manual'
   raw: unknown
 }
 
@@ -105,10 +108,12 @@ export default function AdminBookingsPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('all')
   const [paymentStatus, setPaymentStatus] = useState('all')
+  const [source, setSource] = useState('all')
   const [from, setFrom] = useState('')
   const [to, setTo] = useState('')
 
   const [paymentTarget, setPaymentTarget] = useState<{ type: PaymentBookingType; reference: string; total: number; status: string } | null>(null)
+  const [manualOpen, setManualOpen] = useState(false)
 
   // Resort (accommodation)
   const resortFilters: BookingFilters = { search, status: status as BookingFilters['status'], bookingType: 'all', from: from || undefined, to: to || undefined }
@@ -143,6 +148,15 @@ export default function AdminBookingsPage() {
       const pType = paymentTypeFor(tab)
       if (newStatus === 'confirmed') {
         await approveBooking(pType, idOrRef)
+        // Send confirmation email (non-blocking: approval already succeeded).
+        try {
+          const res = await sendBookingConfirmation(pType, idOrRef)
+          if (res?.status === 'failed') {
+            toast.warning('Booking approved, but confirmation email failed to send.')
+          }
+        } catch (e) {
+          toast.warning('Booking approved, but confirmation email could not be sent.')
+        }
       } else {
         if (tab === 'resort') {
           await updateBookingStatus(idOrRef, newStatus as AdminBooking['status'])
@@ -170,6 +184,7 @@ export default function AdminBookingsPage() {
     }
     if (status !== 'all') out = out.filter((r) => r.status === status)
     if (paymentStatus !== 'all') out = out.filter((r) => r.paymentStatus === paymentStatus)
+    if (source !== 'all') out = out.filter((r) => r.bookingSource === source)
     if (from) out = out.filter((r) => r.date >= from)
     if (to) out = out.filter((r) => r.date <= to)
     return out
@@ -184,6 +199,7 @@ export default function AdminBookingsPage() {
     total: b.totalAmount,
     status: b.status,
     paymentStatus: b.paymentStatus,
+    bookingSource: b.bookingSource,
     raw: b,
   }))
 
@@ -196,6 +212,7 @@ export default function AdminBookingsPage() {
       total: b.totalAmount,
       status: b.status,
       paymentStatus: b.paymentStatus,
+      bookingSource: b.bookingSource,
       raw: b,
     }))
 
@@ -210,6 +227,7 @@ export default function AdminBookingsPage() {
       total: b.totalAmount,
       status: b.status,
       paymentStatus: b.paymentStatus,
+      bookingSource: b.bookingSource,
       raw: b,
     }))
 
@@ -224,6 +242,7 @@ export default function AdminBookingsPage() {
       total: b.totalAmount,
       status: b.status,
       paymentStatus: b.paymentStatus,
+      bookingSource: b.bookingSource,
       raw: b,
     }))
 
@@ -253,6 +272,7 @@ export default function AdminBookingsPage() {
               <TableRow>
                 <TableHead>Reference</TableHead>
                 <TableHead>Customer</TableHead>
+                <TableHead>Source</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead className="hidden sm:table-cell">Schedule</TableHead>
                 <TableHead>Total</TableHead>
@@ -264,13 +284,13 @@ export default function AdminBookingsPage() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                     Loading bookings…
                   </TableCell>
                 </TableRow>
               ) : rows.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="py-10 text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="py-10 text-center text-muted-foreground">
                     No bookings match your filters.
                   </TableCell>
                 </TableRow>
@@ -294,6 +314,11 @@ export default function AdminBookingsPage() {
                       >
                         {row.customerName}
                       </button>
+                    </TableCell>
+                    <TableCell>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${row.bookingSource === 'manual' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-muted text-muted-foreground'}`}>
+                        {row.bookingSource === 'manual' ? 'Manual' : 'Online'}
+                      </span>
                     </TableCell>
                     <TableCell>{format(parseISO(row.date), 'MMM d, yyyy')}</TableCell>
                     <TableCell className="hidden sm:table-cell">{row.schedule}</TableCell>
@@ -369,7 +394,11 @@ export default function AdminBookingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeading title="Bookings" description="All resort, pickleball, ATV, and billiards reservations in one place." />
+      <PageHeading
+        title="Bookings"
+        description="All resort, pickleball, ATV, and billiards reservations in one place."
+        action={<Button onClick={() => setManualOpen(true)}>Create manual booking</Button>}
+      />
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabKey)} className="space-y-4">
         <TabsList className="inline-flex h-auto w-auto gap-1 rounded-lg bg-muted/50 p-1">
@@ -417,6 +446,17 @@ export default function AdminBookingsPage() {
               </SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <Label>Source</Label>
+            <Select value={source} onValueChange={setSource}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All sources</SelectItem>
+                <SelectItem value="online">Online</SelectItem>
+                <SelectItem value="manual">Manual</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
               <Label htmlFor="from">From</Label>
@@ -434,6 +474,8 @@ export default function AdminBookingsPage() {
         {renderTable(activeTab)}
       </TabsContent>
       </Tabs>
+
+      <AdminManualBookingDialog open={manualOpen} onOpenChange={setManualOpen} />
 
       <Dialog open={!!paymentTarget} onOpenChange={(o) => !o && setPaymentTarget(null)}>
         <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto">

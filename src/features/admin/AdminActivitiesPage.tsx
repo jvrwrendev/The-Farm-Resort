@@ -56,6 +56,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { approveBooking, rejectBooking } from '@/services/payment.service'
+import { sendBookingConfirmation } from '@/services/email.service'
 import { PaymentDetailsCard, PaymentStatusBadge } from '@/features/admin/PaymentDetailsCard'
 import type {
   ActivityBooking,
@@ -79,6 +80,7 @@ import {
 } from '@/services/activity.service'
 import { formatBookingDate, formatTimeLabel } from '@/features/activities/utils'
 import { cn, formatCurrency } from '@/lib/utils'
+import { TimePicker12h } from '@/components/ui/time-picker'
 
 const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
 const MAX_SIZE = 2 * 1024 * 1024
@@ -557,11 +559,11 @@ function AdminActivityTab({
             </div>
             <div className="space-y-2">
               <Label>Opening time</Label>
-              <Input type="time" value={typeForm.openTime} onChange={(e) => setTypeForm((p) => ({ ...p, openTime: e.target.value }))} />
+              <TimePicker12h value={typeForm.openTime} onChange={(v) => setTypeForm((p) => ({ ...p, openTime: v }))} />
             </div>
             <div className="space-y-2">
               <Label>Closing time</Label>
-              <Input type="time" value={typeForm.closeTime} onChange={(e) => setTypeForm((p) => ({ ...p, closeTime: e.target.value }))} />
+              <TimePicker12h value={typeForm.closeTime} onChange={(v) => setTypeForm((p) => ({ ...p, closeTime: v }))} />
             </div>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={typeForm.isAvailable} onChange={(e) => setTypeForm((p) => ({ ...p, isAvailable: e.target.checked }))} />
@@ -838,6 +840,12 @@ function AdminActivityTab({
                                 try {
                                   await approveBooking(booking.activityType, booking.reference)
                                   toast.success('Booking approved.')
+                                  try {
+                                    const res = await sendBookingConfirmation(booking.activityType, booking.reference)
+                                    if (res?.status === 'failed') toast.warning('Approved, but confirmation email failed to send.')
+                                  } catch {
+                                    toast.warning('Approved, but confirmation email could not be sent.')
+                                  }
                                   queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
                                   queryClient.invalidateQueries({ queryKey: ['payment-records'] })
                                 } catch (e) {

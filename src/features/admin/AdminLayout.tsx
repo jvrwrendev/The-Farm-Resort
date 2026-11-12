@@ -23,12 +23,7 @@ import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { useAuth } from '@/features/auth/AuthProvider'
 import { BRAND_LOGO_ALT, BRAND_LOGO_URL, BRAND_NAME } from '@/lib/brand'
 import { cn, getInitials } from '@/lib/utils'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
 import { listNotifications, markAsRead, markAllAsRead, type Notification } from '@/services/notification.service'
@@ -63,11 +58,15 @@ const NAV_SECTIONS = [
   },
 ]
 
-function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
+function SidebarContent({ onNavigate, onRequestSignOut }: { onNavigate?: () => void; onRequestSignOut?: () => void }) {
   const { profile, signOut } = useAuth()
   const navigate = useNavigate()
 
   const handleSignOut = () => {
+    if (onRequestSignOut) {
+      onRequestSignOut()
+      return
+    }
     signOut()
     navigate('/admin/login', { replace: true })
   }
@@ -174,6 +173,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
 export function AdminLayout({ children, title }: { children: ReactNode; title?: string }) {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [notifOpen, setNotifOpen] = useState(false)
+  const [logoutOpen, setLogoutOpen] = useState(false)
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { signOut } = useAuth()
@@ -198,53 +198,52 @@ export function AdminLayout({ children, title }: { children: ReactNode; title?: 
       <div className="flex">
         <aside className="admin-sidebar hidden w-72 shrink-0 lg:block">
           <div className="sticky top-0 h-screen overflow-y-auto p-4">
-            <SidebarContent />
+            <SidebarContent onRequestSignOut={() => setLogoutOpen(true)} />
           </div>
         </aside>
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-40 border-b bg-background/80 px-4 py-4 backdrop-blur-xl lg:px-8">
-            <div className="flex items-center justify-between gap-3">
+          <header className="sticky top-0 z-40 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur-xl lg:px-8">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex min-w-0 items-center gap-3">
                 <button
                   type="button"
-                  className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted lg:hidden"
+                  className="shrink-0 rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
                   onClick={() => setDrawerOpen(true)}
                   aria-label="Open menu"
                 >
                   <Menu className="h-5 w-5" />
                 </button>
-                <h1 className="truncate font-display text-lg font-semibold sm:text-xl">
+                <h1 className="truncate font-display text-lg font-semibold tracking-tight sm:text-xl">
                   {title ?? 'Dashboard'}
                 </h1>
               </div>
-              <button
-                type="button"
-                onClick={() => setNotifOpen(true)}
-                className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Notifications"
-                title="Notifications"
-              >
-                <Bell className="h-5 w-5" />
-                {unreadCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
-                )}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  signOut()
-                  navigate('/admin/login', { replace: true })
-                }}
-                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                aria-label="Sign out"
-                title="Sign out"
-              >
-                <LogOut className="h-5 w-5" />
-              </button>
-              <ThemeToggle />
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setNotifOpen(true)}
+                  className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="Notifications"
+                  title="Notifications"
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+                <ThemeToggle />
+                <button
+                  type="button"
+                  onClick={() => setLogoutOpen(true)}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-label="Sign out"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </header>
 
@@ -316,6 +315,36 @@ export function AdminLayout({ children, title }: { children: ReactNode; title?: 
         </>
       )}
 
+      {logoutOpen && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/30" onClick={() => setLogoutOpen(false)} />
+          <div className="fixed left-1/2 top-1/2 z-50 w-[360px] max-w-[calc(100vw-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border bg-background p-6 shadow-2xl">
+            <h3 className="font-display text-lg font-semibold">Sign out</h3>
+            <p className="mt-2 text-sm text-muted-foreground">Are you sure you want to sign out of the admin dashboard?</p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setLogoutOpen(false)}
+                className="rounded-lg px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLogoutOpen(false)
+                  signOut()
+                  navigate('/admin/login', { replace: true })
+                }}
+                className="rounded-lg bg-destructive px-3 py-1.5 text-sm font-medium text-destructive-foreground transition-colors hover:bg-destructive/90"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+
       <AnimatePresence>
         {drawerOpen && (
           <>
@@ -343,7 +372,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title?: 
                   <X className="h-5 w-5" />
                 </button>
               </div>
-              <SidebarContent onNavigate={() => setDrawerOpen(false)} />
+              <SidebarContent onNavigate={() => setDrawerOpen(false)} onRequestSignOut={() => { setDrawerOpen(false); setLogoutOpen(true) }} />
             </motion.aside>
           </>
         )}

@@ -71,6 +71,22 @@ export async function getBookingById(id: string): Promise<AdminBooking | null> {
   return mapBookingRowToAdmin(data as BookingRow)
 }
 
+export async function updateBookingTimes(
+  id: string,
+  checkInTime: string | null,
+  checkOutTime: string | null,
+): Promise<AdminBooking> {
+  const { data, error } = await supabase
+    .from('bookings')
+    .update({ check_in_time: checkInTime, check_out_time: checkOutTime, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('*')
+    .maybeSingle()
+  if (error) throw new Error(mapSupabaseError(error))
+  if (!data) throw new Error('Booking not found.')
+  return mapBookingRowToAdmin(data as BookingRow)
+}
+
 export async function updateBookingStatus(
   id: string,
   status: AdminBookingStatus,
@@ -249,6 +265,8 @@ export async function adminCreateBooking(
     p_guests: input.guests,
     p_check_in_period: input.checkInPeriod,
     p_check_out_period: input.checkOutPeriod,
+    p_check_in_time: input.checkInTime ?? null,
+    p_check_out_time: input.checkOutTime ?? null,
     p_adults: input.adults,
     p_children: input.children,
     p_booking_type: input.bookingType,

@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { TimePicker12h } from '@/components/ui/time-picker'
 import { PageHeading } from '@/features/admin/components'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
 import { getSettings, updateSettings } from '@/services/settings.service'
@@ -168,21 +169,11 @@ export default function AdminSettingsPage() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
               <div className="space-y-2">
                 <Label htmlFor="checkInTime">Check-in time</Label>
-                <Input
-                  id="checkInTime"
-                  type="time"
-                  value={form.checkInTime}
-                  onChange={(e) => update({ checkInTime: e.target.value })}
-                />
+                <TimePicker12h value={form.checkInTime} onChange={(v) => update({ checkInTime: v })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="checkOutTime">Check-out time</Label>
-                <Input
-                  id="checkOutTime"
-                  type="time"
-                  value={form.checkOutTime}
-                  onChange={(e) => update({ checkOutTime: e.target.value })}
-                />
+                <TimePicker12h value={form.checkOutTime} onChange={(v) => update({ checkOutTime: v })} />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="settings-maxGuests">Guest capacity</Label>

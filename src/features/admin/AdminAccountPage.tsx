@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { KeyRound, Loader2, Mail, Save } from 'lucide-react'
 import { toast } from 'sonner'
@@ -28,8 +28,16 @@ async function verifyCurrentPassword(email: string, password: string) {
 }
 
 export default function AdminAccountPage() {
-  const { user, refreshProfile } = useAuth()
+  const { user, profile, refreshProfile } = useAuth()
   const currentEmail = user?.email ?? ''
+  const currentName = profile?.full_name ?? user?.email?.split('@')[0] ?? ''
+
+  const [nameValue, setNameValue] = useState('')
+  const [nameError, setNameError] = useState('')
+
+  useEffect(() => {
+    setNameValue(currentName)
+  }, [currentName])
 
   const [emailValues, setEmailValues] = useState({ email: '', confirm: '', currentPassword: '' })
   const [emailError, setEmailError] = useState('')
@@ -78,6 +86,39 @@ export default function AdminAccountPage() {
       setPasswordError(error instanceof Error ? error.message : 'Unable to update password.')
     },
   })
+
+  const nameMutation = useMutation({
+    mutationFn: async () => {
+      if (!user) throw new Error('No active session.')
+      const { error } = await supabase
+        .from('profiles')
+        .update({ full_name: nameValue.trim(), updated_at: new Date().toISOString() })
+        .eq('id', user.id)
+      if (error) throw new Error(error.message || 'Unable to update name.')
+    },
+    onSuccess: () => {
+      setNameError('')
+      toast.success('Name updated.')
+      refreshProfile()
+    },
+    onError: (error: unknown) => {
+      setNameError(error instanceof Error ? error.message : 'Unable to update name.')
+    },
+  })
+
+  const handleNameSubmit = (event: FormEvent) => {
+    event.preventDefault()
+    setNameError('')
+    if (!nameValue.trim()) {
+      setNameError('Name is required.')
+      return
+    }
+    if (!isSupabaseConfigured) {
+      setNameError('Supabase is not configured.')
+      return
+    }
+    nameMutation.mutate()
+  }
 
   const handleEmailSubmit = (event: FormEvent) => {
     event.preventDefault()
@@ -145,6 +186,33 @@ export default function AdminAccountPage() {
           Supabase credentials are not set. Configure <code>.env</code> before changing credentials.
         </div>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 font-display text-lg">
+            <Mail className="h-4 w-4 text-primary" />
+            Profile name
+          </CardTitle>
+          <CardDescription>Current name: <span className="font-medium text-foreground">{currentName}</span></CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleNameSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="account-name">Full name</Label>
+              <Input
+                id="account-name"
+                value={nameValue}
+                onChange={(e) => setNameValue(e.target.value)}
+              />
+            </div>
+            {nameError && <FieldError message={nameError} />}
+            <Button type="submit" disabled={nameMutation.isPending}>
+              {nameMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              Update name
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>

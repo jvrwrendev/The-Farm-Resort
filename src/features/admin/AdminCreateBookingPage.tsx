@@ -179,6 +179,9 @@ export default function AdminCreateBookingPage() {
           status: 'confirmed',
           paymentStatus: 'paid',
           bookingType: 'online_booking',
+          bookingSource: 'manual',
+          checkInAt: null,
+          checkOutAt: null,
           createdAt: '',
           updatedAt: '',
         } satisfies AdminBooking

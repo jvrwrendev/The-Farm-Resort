@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
+import { TimePicker12h } from '@/components/ui/time-picker'
 import { listPickleballBookings } from '@/services/pickleballBooking.service'
 import {
   listAllPickleballCourts,
@@ -394,11 +395,11 @@ export default function AdminPickleballCourtsPage() {
             </div>
             <div className="space-y-2">
               <Label>Open Time</Label>
-              <Input type="time" value={form.openTime} onChange={(e) => setForm((f) => ({ ...f, openTime: e.target.value }))} />
+              <TimePicker12h value={form.openTime} onChange={(v) => setForm((f) => ({ ...f, openTime: v }))} />
             </div>
             <div className="space-y-2">
               <Label>Close Time</Label>
-              <Input type="time" value={form.closeTime} onChange={(e) => setForm((f) => ({ ...f, closeTime: e.target.value }))} />
+              <TimePicker12h value={form.closeTime} onChange={(v) => setForm((f) => ({ ...f, closeTime: v }))} />
             </div>
             <div className="flex items-center gap-2">
               <input type="checkbox" checked={form.isCovered} onChange={(e) => setForm((f) => ({ ...f, isCovered: e.target.checked }))} />

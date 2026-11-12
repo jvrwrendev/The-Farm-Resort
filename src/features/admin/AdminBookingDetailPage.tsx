@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { ArrowLeft, CalendarDays, Clock, Mail, Phone, Users } from 'lucide-react'
 import { toast } from 'sonner'
@@ -13,6 +13,7 @@ import { updateBookingStatus } from '@/services/admin.service'
 import { getPickleballBookingByReference, updatePickleballBookingStatus } from '@/services/pickleballBooking.service'
 import { getActivityBookingByReference, updateActivityBookingStatus } from '@/services/activity.service'
 import { approveBooking, completePayment, getPaymentForBooking, rejectBooking } from '@/services/payment.service'
+import { sendBookingConfirmation, getEmailLog } from '@/services/email.service'
 import type { PaymentRecord } from '@/services/payment.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
@@ -72,7 +73,7 @@ export default function AdminBookingDetailPage() {
     return (
       <div className="space-y-6">
         <BackButton />
-        <Header title={b.bookingReference} status={b.status} subtitle={`Submitted ${format(parseISO(b.createdAt), 'MMM d, yyyy · h:mm a')}`} />
+        <Header title={b.bookingReference} status={b.status} subtitle={`Submitted ${format(parseISO(b.createdAt), 'MMM d, yyyy · h:mm a')}`} source={b.bookingSource} />
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="space-y-6 lg:col-span-2">
             <Card>
@@ -87,9 +88,16 @@ export default function AdminBookingDetailPage() {
             <Card>
               <CardHeader><CardTitle className="font-display text-lg">Stay details</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <InfoRow icon={CalendarDays} label="Check-in" value={`${format(parseISO(b.checkIn), 'EEEE, MMM d, yyyy')}${b.checkInPeriod ? ` · ${b.checkInPeriod}` : ''}`} />
-                <InfoRow icon={CalendarDays} label="Check-out" value={`${format(parseISO(b.checkOut), 'EEEE, MMM d, yyyy')}${b.checkOutPeriod ? ` · ${b.checkOutPeriod}` : ''}`} />
+                <InfoRow icon={CalendarDays} label="Check-in" value={`${format(parseISO(b.checkIn), 'MMM d, yyyy')}${b.checkInPeriod ? ` · ${b.checkInPeriod}` : ''}`} />
+                <InfoRow icon={CalendarDays} label="Check-out" value={`${format(parseISO(b.checkOut), 'MMM d, yyyy')}${b.checkOutPeriod ? ` · ${b.checkOutPeriod}` : ''}`} />
                 <InfoRow icon={Clock} label="Nights" value={`${b.numberOfNights} night(s)`} />
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader><CardTitle className="font-display text-lg">Check-in / Check-out timestamps</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <InfoRow icon={Clock} label="Checked in at" value={b.checkInAt ? format(parseISO(b.checkInAt), 'MMMM d, yyyy h:mm a') : '—'} />
+                <InfoRow icon={Clock} label="Checked out at" value={b.checkOutAt ? format(parseISO(b.checkOutAt), 'MMMM d, yyyy h:mm a') : '—'} />
               </CardContent>
             </Card>
           </div>
@@ -103,6 +111,7 @@ export default function AdminBookingDetailPage() {
               lineItem={{ label: `${formatCurrency(b.pricePerNight)} × ${b.numberOfNights} night(s)`, amount: b.totalAmount }}
             />
             <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
+            <EmailConfirmationCard bookingType="accommodation" reference={b.bookingReference} />
           </div>
         </div>
       </div>
@@ -137,6 +146,13 @@ export default function AdminBookingDetailPage() {
                 <InfoRow icon={CalendarDays} label="Hourly rate" value={formatCurrency(b.hourlyRate)} />
               </CardContent>
             </Card>
+            <Card>
+              <CardHeader><CardTitle className="font-display text-lg">Check-in / Check-out timestamps</CardTitle></CardHeader>
+              <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <InfoRow icon={Clock} label="Checked in at" value={b.checkInAt ? format(parseISO(b.checkInAt), 'MMMM d, yyyy h:mm a') : '—'} />
+                <InfoRow icon={Clock} label="Checked out at" value={b.checkOutAt ? format(parseISO(b.checkOutAt), 'MMMM d, yyyy h:mm a') : '—'} />
+              </CardContent>
+            </Card>
           </div>
           <div className="space-y-6">
             <BookingStatusActions detailType="pickleball" reference={b.reference} bookingId={b.id} status={b.status} onChanged={() => pickleballQuery.refetch()} />
@@ -148,6 +164,7 @@ export default function AdminBookingDetailPage() {
               lineItem={{ label: `${formatCurrency(b.hourlyRate)} × ${b.durationHours} hour(s)`, amount: b.totalAmount }}
             />
             <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
+            <EmailConfirmationCard bookingType="pickleball" reference={b.reference} />
           </div>
         </div>
       </div>
@@ -182,6 +199,13 @@ export default function AdminBookingDetailPage() {
               <InfoRow icon={Clock} label="Duration" value={`${b.durationHours} hour(s)`} />
             </CardContent>
           </Card>
+          <Card>
+            <CardHeader><CardTitle className="font-display text-lg">Check-in / Check-out timestamps</CardTitle></CardHeader>
+            <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <InfoRow icon={Clock} label="Checked in at" value={b.checkInAt ? format(parseISO(b.checkInAt), 'MMMM d, yyyy h:mm a') : '—'} />
+              <InfoRow icon={Clock} label="Checked out at" value={b.checkOutAt ? format(parseISO(b.checkOutAt), 'MMMM d, yyyy h:mm a') : '—'} />
+            </CardContent>
+          </Card>
         </div>
         <div className="space-y-6">
           <BookingStatusActions detailType={b.activityType === 'atv' ? 'atv' : 'billiards'} reference={b.reference} bookingId={b.id} status={b.status} onChanged={() => activityQuery.refetch()} />
@@ -193,9 +217,56 @@ export default function AdminBookingDetailPage() {
             lineItem={{ label: `${formatCurrency(b.hourlyRate)} × ${b.durationHours} hour(s)`, amount: b.totalAmount }}
           />
           <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
+          <EmailConfirmationCard bookingType={b.activityType} reference={b.reference} />
         </div>
       </div>
     </div>
+  )
+}
+
+function EmailConfirmationCard({ bookingType, reference }: { bookingType: 'accommodation' | 'pickleball' | 'billiards' | 'atv'; reference: string }) {
+  const queryClient = useQueryClient()
+  const { data: log, isLoading } = useQuery({
+    queryKey: ['email-log', bookingType, reference],
+    queryFn: () => getEmailLog(bookingType, reference),
+  })
+  const [busy, setBusy] = useState(false)
+  const resend = async () => {
+    setBusy(true)
+    try {
+      const res = await sendBookingConfirmation(bookingType, reference)
+      if (res?.status === 'sent') toast.success('Confirmation email sent.')
+      else if (res?.status === 'already_sent') toast.info('Confirmation email already sent.')
+      else toast.warning('Email could not be sent. Check logs.')
+      queryClient.invalidateQueries({ queryKey: ['email-log', bookingType, reference] })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to send email.')
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <Card>
+      <CardHeader><CardTitle className="font-display text-lg">Confirmation email</CardTitle></CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        {isLoading ? (
+          <Skeleton className="h-16 w-full" />
+        ) : log ? (
+          <>
+            <InfoRow icon={Mail} label="Recipient" value={log.recipient} />
+            <InfoRow icon={Clock} label="Status" value={log.status} />
+            <InfoRow icon={Clock} label="Attempts" value={`${log.attempts}`} />
+            {log.sentAt && <InfoRow icon={Clock} label="Sent at" value={format(parseISO(log.sentAt), 'MMMM d, yyyy h:mm a')} />}
+            {log.lastError && <p className="text-xs text-destructive break-words">{log.lastError}</p>}
+          </>
+        ) : (
+          <p className="text-muted-foreground">No confirmation email sent yet.</p>
+        )}
+        <Button type="button" size="sm" variant="outline" onClick={resend} disabled={busy || log?.status === 'sent'} loading={busy}>
+          {log?.status === 'sent' ? 'Sent' : 'Send / retry'}
+        </Button>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -207,13 +278,18 @@ function BackButton() {
   )
 }
 
-function Header({ title, status, subtitle }: { title: string; status: string; subtitle: string }) {
+function Header({ title, status, subtitle, source }: { title: string; status: string; subtitle: string; source?: 'online' | 'manual' }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div>
         <div className="flex flex-wrap items-center gap-3">
           <h2 className="font-display text-2xl font-bold">{title}</h2>
           <StatusBadge status={status as AdminBooking['status']} />
+          {source && (
+            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${source === 'manual' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-muted text-muted-foreground'}`}>
+              {source === 'manual' ? 'Manual' : 'Online'}
+            </span>
+          )}
         </div>
         <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p>
       </div>
@@ -259,6 +335,12 @@ function BookingStatusActions({
     try {
       if (newStatus === 'confirmed' && status === 'pending') {
         await approveBooking(paymentType as 'accommodation' | 'pickleball' | 'atv' | 'billiards', reference)
+        try {
+          const res = await sendBookingConfirmation(paymentType as 'accommodation' | 'pickleball' | 'atv' | 'billiards', reference)
+          if (res?.status === 'failed') toast.warning('Approved, but confirmation email failed to send.')
+        } catch {
+          toast.warning('Approved, but confirmation email could not be sent.')
+        }
       } else if (newStatus === 'cancelled' && status === 'pending') {
         await rejectBooking(paymentType as 'accommodation' | 'pickleball' | 'atv' | 'billiards', reference, rejectReason)
         setRejectOpen(false)

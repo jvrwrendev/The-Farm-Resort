@@ -145,8 +145,16 @@ export default function PickleballBookingPage() {
   }, [availabilityQuery.data, startTime, endTime, endOptions, setValue])
 
   const mutation = useMutation({
-    mutationFn: async (values: PickleballBookingFormValues) =>
-      createPickleballBooking({
+    mutationFn: async (values: PickleballBookingFormValues) => {
+      const now = new Date()
+      const todayStr = format(now, 'yyyy-MM-dd')
+      if (values.bookingDate === todayStr) {
+        const toMin = (t: string) => { const [h, m] = t.split(':').map(Number); return h * 60 + m }
+        if (toMin(values.startTime) < now.getHours() * 60 + now.getMinutes()) {
+          throw new Error('The selected start time has already passed.')
+        }
+      }
+      return createPickleballBooking({
         customerName: values.customerName,
         email: values.email,
         contactNumber: values.contactNumber,
@@ -156,7 +164,8 @@ export default function PickleballBookingPage() {
         endTime: values.endTime,
         players: Number(values.players),
         notes: values.notes ?? '',
-      }),
+      })
+    },
     onSuccess: (booking) => {
       justBookedRef.current = true
       queryClient.invalidateQueries({ queryKey: ['pickleball'] })

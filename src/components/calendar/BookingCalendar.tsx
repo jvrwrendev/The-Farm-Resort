@@ -23,6 +23,7 @@ interface BookingCalendarProps {
   onDateSelect?: (date: Date, event?: CalendarEvent) => void
   selectedDate?: Date | null
   showGuestInfo?: boolean
+  showLegend?: boolean
   className?: string
 }
 
@@ -64,6 +65,7 @@ export function BookingCalendar({
   onDateSelect,
   selectedDate,
   showGuestInfo = false,
+  showLegend = true,
   className,
 }: BookingCalendarProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -208,17 +210,19 @@ export function BookingCalendar({
       </div>
 
       {/* Legend */}
-      <div className="border-t bg-secondary/30 px-4 py-3 sm:px-6 sm:py-4">
-        <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          Legend
-        </p>
-        <div className="grid grid-cols-2 gap-2 text-xs sm:flex sm:flex-wrap sm:gap-4">
-          <LegendItem state="available" label="Available" />
-          <LegendItem state="pending" label="Pending" />
-          <LegendItem state="occupied" label="Occupied" />
-          <LegendItem state="past" label="Past" />
+      {showLegend && (
+        <div className="border-t bg-secondary/30 px-4 py-3 sm:px-6 sm:py-4">
+          <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Legend
+          </p>
+          <div className="grid grid-cols-2 gap-2 text-xs sm:flex sm:flex-wrap sm:gap-4">
+            <LegendItem state="available" label="Available" />
+            <LegendItem state="pending" label="Pending" />
+            <LegendItem state="occupied" label="Occupied" />
+            <LegendItem state="past" label="Past" />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

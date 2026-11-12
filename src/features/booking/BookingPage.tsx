@@ -188,6 +188,15 @@ export default function BookingPage() {
       toast.error(`This accommodation hosts up to ${maxGuests} guests.`)
       return
     }
+    const now = new Date()
+    const todayStr = format(now, 'yyyy-MM-dd')
+    if (values.checkIn === todayStr && values.checkInTime) {
+      const [h, m] = values.checkInTime.split(':').map(Number)
+      if (h * 60 + m < now.getHours() * 60 + now.getMinutes()) {
+        toast.error('The selected check-in time has already passed.')
+        return
+      }
+    }
     if (available === false) {
       toast.error('Those dates are already reserved. Please choose another range.')
       return
@@ -211,13 +220,13 @@ export default function BookingPage() {
       {
         label: 'Check-in',
         value: checkIn
-          ? `${format(parseISO(checkIn), 'EEE, MMM d, yyyy')} · ${checkInPeriod}`
+          ? `${format(parseISO(checkIn), 'MMM d, yyyy')} · ${checkInPeriod}`
           : 'Select check-in date',
       },
       {
         label: 'Check-out',
         value: checkOut
-          ? `${format(parseISO(checkOut), 'EEE, MMM d, yyyy')} · ${checkOutPeriod}`
+          ? `${format(parseISO(checkOut), 'MMM d, yyyy')} · ${checkOutPeriod}`
           : 'Select check-out date',
       },
       { label: 'Nights', value: nights > 0 ? String(nights) : '—' },
