@@ -168,8 +168,8 @@ export function PickleballAvailabilityCalendar() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="overflow-hidden rounded-2xl border bg-card">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="overflow-hidden rounded-2xl border bg-card lg:sticky lg:top-24 lg:self-start">
         <div className="flex items-center justify-between gap-3 border-b bg-secondary/50 px-5 py-4 sm:px-6">
           <div>
             <p className="font-display text-lg font-semibold text-foreground sm:text-xl">
@@ -269,8 +269,9 @@ export function PickleballAvailabilityCalendar() {
         </div>
       </div>
 
-      {selectedDate && selectedAvailability && (
-        <div className="overflow-hidden rounded-2xl border bg-card">
+      <div className="overflow-hidden rounded-2xl border bg-card lg:sticky lg:top-24 lg:self-start">
+        {selectedDate && selectedAvailability ? (
+          <>
           <div className="flex items-start justify-between gap-4 border-b bg-secondary/40 px-5 py-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -358,8 +359,19 @@ export function PickleballAvailabilityCalendar() {
               and Sundays.
             </p>
           </div>
-        </div>
-      )}
+           </>
+         ) : (
+           <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 px-6 py-10 text-center">
+             <CalendarDays className="h-8 w-8 text-muted-foreground/60" />
+             <div>
+               <p className="font-medium text-foreground">No date selected</p>
+               <p className="mt-1 text-sm text-muted-foreground">
+                 Select a date on the calendar to view pickleball court availability.
+               </p>
+             </div>
+           </div>
+         )}
+      </div>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { endOfDay, format, startOfMonth } from 'date-fns'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { BedDouble, Sparkles, Trophy } from 'lucide-react'
+import { BedDouble, CalendarDays, Sparkles, Trophy } from 'lucide-react'
 import { BookingCalendar, AvailabilityDetails } from '@/components/calendar/BookingCalendar'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Button } from '@/components/ui/button'
@@ -93,21 +93,38 @@ export function AvailabilitySection() {
                 reservation.
               </p>
 
-              <BookingCalendar
-                events={events}
-                onDateSelect={handleDateSelect}
-                selectedDate={selectedDate}
-                showGuestInfo={false}
-              />
-
-              <AvailabilityDetails
-                selectedDate={selectedDate}
-                selectedEvent={selectedEvent}
-                onClear={() => {
-                  setSelectedDate(null)
-                  setSelectedEvent(undefined)
-                }}
-              />
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                <div className="lg:sticky lg:top-24 lg:self-start">
+                  <BookingCalendar
+                    events={events}
+                    onDateSelect={handleDateSelect}
+                    selectedDate={selectedDate}
+                    showGuestInfo={false}
+                  />
+                </div>
+                <div className="lg:sticky lg:top-24 lg:self-start">
+                  {selectedDate ? (
+                    <AvailabilityDetails
+                      selectedDate={selectedDate}
+                      selectedEvent={selectedEvent}
+                      onClear={() => {
+                        setSelectedDate(null)
+                        setSelectedEvent(undefined)
+                      }}
+                    />
+                  ) : (
+                    <div className="flex h-full min-h-[16rem] flex-col items-center justify-center gap-3 rounded-2xl border bg-card px-6 py-10 text-center">
+                      <CalendarDays className="h-8 w-8 text-muted-foreground/60" />
+                      <div>
+                        <p className="font-medium text-foreground">No date selected</p>
+                        <p className="mt-1 text-sm text-muted-foreground">
+                          Select a date on the calendar to view its booking details and availability.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {isAvailable && (
                 <motion.div
