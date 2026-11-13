@@ -11,7 +11,11 @@ import {
   Check,
   Gauge,
   Image as ImageIcon,
+  QrCode,
+  Receipt,
   ShieldCheck,
+  Upload,
+  X,
 } from 'lucide-react'
 import { PublicLayout } from '@/components/layout/Navbar'
 import { Button } from '@/components/ui/button'
@@ -36,6 +40,7 @@ import {
 } from '@/services/activity.service'
 import type { ActivityBooking, ActivityType, ActivityUnit } from './types'
 import { PaymentCheckout } from '@/features/payment/PaymentCheckout'
+import { calculateDownPayment, getPaymentSettings, submitPayment, uploadPaymentReceipt } from '@/services/payment.service'
 import { activityBookingSchema, type ActivityBookingFormValues } from './schema'
 import {
   formatBookingDate,
@@ -104,10 +109,18 @@ export default function ActivityBookingPage({
     queryFn: () => listActivityUnits(activityType),
     enabled: Boolean(activity),
   })
+  const { data: paymentSettings, isLoading: settingsLoading } = useQuery({
+    queryKey: ['payment-settings'],
+    queryFn: getPaymentSettings,
+  })
 
   const [reviewOpen, setReviewOpen] = useState(false)
   const [reviewValues, setReviewValues] = useState<ActivityBookingFormValues | null>(null)
-  const [createdBooking, setCreatedBooking] = useState<ActivityBooking | null>(null)
+  const [createdBooking] = useState<ActivityBooking | null>(null)
+  const [receiptFile, setReceiptFile] = useState<File | null>(null)
+  const [receiptPreview, setReceiptPreview] = useState('')
+  const [receiptUrl, setReceiptUrl] = useState('')
+  const [uploadingReceipt, setUploadingReceipt] = useState(false)
 
   const {
     register,
@@ -199,7 +212,7 @@ export default function ActivityBookingPage({
   }, [players, selectedUnit, setValue])
 
   const mutation = useMutation({
-    mutationFn: async (values: ActivityBookingFormValues) => {
+    mutationFn: async ({ values, receiptUrl }: { values: ActivityBookingFormValues; receiptUrl: string }) => {
       if (!activity) throw new Error('Activity not available.')
       const now = new Date()
       const todayStr = format(now, 'yyyy-MM-dd')
@@ -209,7 +222,7 @@ export default function ActivityBookingPage({
           throw new Error('The selected start time has already passed.')
         }
       }
-      return createActivityBooking({
+      const booking = await createActivityBooking({
         activityId: activity.id,
         unitId: values.unitId,
         customerName: values.customerName,
@@ -223,14 +236,17 @@ export default function ActivityBookingPage({
         players: Number(values.players),
         notes: values.notes ?? '',
       })
+      if (receiptUrl) {
+        await submitPayment({ bookingType: activityType, bookingReference: booking.reference, totalAmount: booking.totalAmount, receiptUrl })
+      }
+      return booking
     },
     onSuccess: (booking) => {
       queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
       queryClient.invalidateQueries({ queryKey: ['activity-day-bookings'] })
       toast.success(`Booking received · ${booking.reference}`)
       setReviewOpen(false)
-      setCreatedBooking(booking)
-      window.scrollTo({ top: 0, behavior: 'smooth' })
+      navigate(`/${activityType}/confirmation/${booking.reference}`)
     },
     onError: (error: unknown) => {
       toast.error(error instanceof Error ? error.message : 'Unable to submit the booking.')
@@ -309,6 +325,16 @@ export default function ActivityBookingPage({
   const reviewUnit = reviewValues ? units.find((u) => u.id === reviewValues.unitId) : undefined
   const reviewRate = getUnitRate(reviewUnit, reviewValues?.bookingDate ?? bookingDate)
   const reviewTotal = reviewRate * (reviewValues?.durationHours ?? 0)
+  const { downPayment: reviewDown, remaining: reviewRemaining } = calculateDownPayment(reviewTotal)
+
+  const handleReceiptFile = (selected: File) => {
+    const ACCEPTED = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
+    if (!ACCEPTED.includes(selected.type)) { toast.error('Unsupported file type. Please use JPG, PNG, or WebP.'); return }
+    if (selected.size > 2 * 1024 * 1024) { toast.error('File is too large. Maximum size is 2 MB.'); return }
+    setReceiptFile(selected)
+    setReceiptPreview(URL.createObjectURL(selected))
+    setReceiptUrl('')
+  }
 
   if (createdBooking) {
     return (
@@ -747,6 +773,49 @@ export default function ActivityBookingPage({
                 <span className="font-semibold text-primary">{formatCurrency(reviewTotal)}</span>
               </div>
             </div>
+            <div className="mt-4 grid grid-cols-3 gap-2 text-xs">
+              <div className="rounded-lg border bg-muted/30 p-2 text-center"><p className="text-muted-foreground">Total</p><p className="font-semibold">{formatCurrency(reviewTotal)}</p></div>
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-2 text-center"><p className="text-primary">50% down</p><p className="font-semibold text-primary">{formatCurrency(reviewDown)}</p></div>
+              <div className="rounded-lg border bg-muted/30 p-2 text-center"><p className="text-muted-foreground">Remaining</p><p className="font-semibold">{formatCurrency(reviewRemaining)}</p></div>
+            </div>
+            <div className="mt-4 space-y-2">
+              <p className="text-sm font-semibold">GCash QR code</p>
+              {settingsLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : (
+                <>
+                  {paymentSettings?.gcashQrUrl ? <img src={paymentSettings.gcashQrUrl} alt="GCash QR" className="mx-auto max-h-40 rounded-xl border" /> : <div className="flex h-32 items-center justify-center rounded-xl border border-dashed text-muted-foreground"><QrCode className="h-8 w-8" /></div>}
+                  <div className="text-xs text-muted-foreground">
+                    <p><span className="font-medium text-foreground">Account name:</span> {paymentSettings?.gcashAccountName}</p>
+                    <p><span className="font-medium text-foreground">GCash number:</span> {paymentSettings?.gcashNumber}</p>
+                    {paymentSettings?.instructions && <p className="mt-1">{paymentSettings.instructions}</p>}
+                  </div>
+                </>
+              )}
+            </div>
+            <div className="mt-4 space-y-2">
+              <p className="text-sm font-semibold">Upload GCash receipt (50% down payment)</p>
+              <input type="file" accept="image/jpeg,image/jpg,image/png,image/webp" className="hidden" id="actReceiptInput" onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReceiptFile(f) }} />
+              {!receiptPreview ? (
+                <label htmlFor="actReceiptInput" className="flex h-32 w-full cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-muted-foreground/30 text-muted-foreground hover:border-primary/50 hover:text-primary">
+                  <Upload className="h-6 w-6" />
+                  <span className="text-sm font-medium">Click to upload receipt</span>
+                </label>
+              ) : (
+                <div className="relative">
+                  <img src={receiptPreview} alt="Receipt preview" className="h-32 w-full rounded-xl object-contain border" />
+                  <button type="button" onClick={() => { setReceiptFile(null); setReceiptPreview(''); setReceiptUrl('') }} className="absolute right-2 top-2 rounded-full bg-background/80 p-1 shadow"><X className="h-4 w-4" /></button>
+                </div>
+              )}
+              {receiptFile && <p className="text-xs text-muted-foreground flex items-center gap-1"><Receipt className="h-3.5 w-3.5" /> {receiptFile.name}</p>}
+              {receiptFile && !receiptUrl && (
+                <Button type="button" size="sm" variant="outline" onClick={async () => {
+                  setUploadingReceipt(true)
+                  try { const url = await uploadPaymentReceipt(receiptFile); setReceiptUrl(url); toast.success('Receipt uploaded.') }
+                  catch (e) { toast.error(e instanceof Error ? e.message : 'Upload failed.') }
+                  finally { setUploadingReceipt(false) }
+                }} loading={uploadingReceipt}>Upload receipt</Button>
+              )}
+              {receiptUrl && <p className="text-xs text-primary">Receipt uploaded ✓</p>}
+            </div>
             <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
               <Button
                 type="button"
@@ -758,8 +827,9 @@ export default function ActivityBookingPage({
               </Button>
               <Button
                 type="button"
-                onClick={() => mutation.mutate(reviewValues)}
+                onClick={() => mutation.mutate({ values: reviewValues!, receiptUrl })}
                 loading={mutation.isPending}
+                disabled={!receiptUrl}
               >
                 Confirm booking
               </Button>

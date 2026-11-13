@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { StatusBadge } from '@/features/admin/components'
 import { PaymentDetailsCard } from '@/features/admin/PaymentDetailsCard'
 import { getBookingByReference } from '@/services/booking.service'
+import { supabase } from '@/lib/supabase'
 import { updateBookingStatus } from '@/services/admin.service'
 import { getPickleballBookingByReference, updatePickleballBookingStatus } from '@/services/pickleballBooking.service'
 import { getActivityBookingByReference, updateActivityBookingStatus } from '@/services/activity.service'
@@ -104,6 +105,7 @@ export default function AdminBookingDetailPage() {
           </div>
           <div className="space-y-6">
             <BookingStatusActions detailType="resort" reference={b.bookingReference} bookingId={b.id} status={b.status} onChanged={() => resortQuery.refetch()} />
+            <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
             <PaymentDetailsCard
               bookingType="accommodation"
               reference={b.bookingReference}
@@ -111,7 +113,6 @@ export default function AdminBookingDetailPage() {
               fallbackStatus={b.paymentStatus}
               lineItem={{ label: `${formatCurrency(b.pricePerNight)} × ${b.numberOfNights} night(s)`, amount: b.totalAmount }}
             />
-            <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
             <EmailConfirmationCard bookingType="accommodation" reference={b.bookingReference} />
           </div>
         </div>
@@ -157,6 +158,7 @@ export default function AdminBookingDetailPage() {
           </div>
           <div className="space-y-6">
             <BookingStatusActions detailType="pickleball" reference={b.reference} bookingId={b.id} status={b.status} onChanged={() => pickleballQuery.refetch()} />
+            <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
             <PaymentDetailsCard
               bookingType="pickleball"
               reference={b.reference}
@@ -164,7 +166,6 @@ export default function AdminBookingDetailPage() {
               fallbackStatus={b.paymentStatus}
               lineItem={{ label: `${formatCurrency(b.hourlyRate)} × ${b.durationHours} hour(s)`, amount: b.totalAmount }}
             />
-            <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
             <EmailConfirmationCard bookingType="pickleball" reference={b.reference} />
           </div>
         </div>
@@ -210,6 +211,7 @@ export default function AdminBookingDetailPage() {
         </div>
         <div className="space-y-6">
           <BookingStatusActions detailType={b.activityType === 'atv' ? 'atv' : 'billiards'} reference={b.reference} bookingId={b.id} status={b.status} onChanged={() => activityQuery.refetch()} />
+          <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
           <PaymentDetailsCard
             bookingType={b.activityType}
             reference={b.reference}
@@ -217,7 +219,6 @@ export default function AdminBookingDetailPage() {
             fallbackStatus={b.paymentStatus}
             lineItem={{ label: `${formatCurrency(b.hourlyRate)} × ${b.durationHours} hour(s)`, amount: b.totalAmount }}
           />
-          <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
           <EmailConfirmationCard bookingType={b.activityType} reference={b.reference} />
         </div>
       </div>
@@ -381,6 +382,26 @@ function BookingStatusActions({
       } else {
         await updateActivityBookingStatus(bookingId, newStatus as 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'rejected')
       }
+
+      // Keep the booking date in sync with the actual check-in / check-out day.
+      const today = new Date().toISOString().slice(0, 10)
+      const nowIso = new Date().toISOString()
+      if (detailType === 'resort') {
+        if (newStatus === 'checked_in') {
+          await supabase.from('bookings').update({ check_in: today, updated_at: nowIso }).eq('id', bookingId)
+        } else if (newStatus === 'completed') {
+          await supabase.from('bookings').update({ check_out: today, updated_at: nowIso }).eq('id', bookingId)
+        }
+      } else if (detailType === 'pickleball') {
+        if (newStatus === 'checked_in' || newStatus === 'completed') {
+          await supabase.from('pickleball_bookings').update({ booking_date: today, updated_at: nowIso }).eq('reference', reference)
+        }
+      } else {
+        if (newStatus === 'checked_in' || newStatus === 'completed') {
+          await supabase.from('activity_bookings').update({ booking_date: today, updated_at: nowIso }).eq('id', bookingId)
+        }
+      }
+
       toast.success('Booking status updated.')
       invalidate()
       onChanged()
@@ -559,15 +580,19 @@ function CompletePaymentButton({
   if (!canComplete) return null
 
   return (
-    <Card>
+    <Card className="border-primary/30 bg-primary/5">
       <CardHeader>
         <CardTitle className="font-display text-lg">Payment completion</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <p className="text-sm text-muted-foreground">
-          Outstanding balance: <span className="font-semibold text-foreground">{formatCurrency(balance)}</span>. Complete payment to mark as paid.
+        <div className="flex items-center justify-between rounded-lg bg-background/60 p-3">
+          <span className="text-sm text-muted-foreground">Outstanding balance</span>
+          <span className="text-lg font-bold text-primary">{formatCurrency(balance)}</span>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Complete the remaining payment to mark this booking as fully paid.
         </p>
-        <Button type="button" onClick={() => setConfirmOpen(true)}>
+        <Button type="button" className="w-full" onClick={() => setConfirmOpen(true)}>
           Complete payment
         </Button>
 
