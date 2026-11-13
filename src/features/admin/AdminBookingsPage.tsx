@@ -154,7 +154,7 @@ export default function AdminBookingsPage() {
           if (res?.status === 'failed') {
             toast.warning('Booking approved, but confirmation email failed to send.')
           }
-        } catch (e) {
+        } catch {
           toast.warning('Booking approved, but confirmation email could not be sent.')
         }
       } else {

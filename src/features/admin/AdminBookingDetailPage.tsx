@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { StatusBadge } from '@/features/admin/components'
 import { PaymentDetailsCard } from '@/features/admin/PaymentDetailsCard'
 import { getBookingByReference } from '@/services/booking.service'
@@ -311,6 +312,15 @@ function InfoRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ cla
   )
 }
 
+const ALLOWED_TRANSITIONS: Record<string, string[]> = {
+  pending: ['confirmed', 'cancelled'],
+  confirmed: ['checked_in', 'cancelled'],
+  checked_in: ['completed', 'confirmed'],
+  completed: ['checked_in'],
+  cancelled: [],
+  rejected: [],
+}
+
 function BookingStatusActions({
   detailType,
   reference,
@@ -324,13 +334,32 @@ function BookingStatusActions({
   status: string
   onChanged: () => void
 }) {
+  const queryClient = useQueryClient()
   const [busy, setBusy] = useState(false)
   const [rejectOpen, setRejectOpen] = useState(false)
   const [rejectReason, setRejectReason] = useState('')
+  const [confirmOpen, setConfirmOpen] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null)
+  const [selectedStatus, setSelectedStatus] = useState<string>('')
 
   const paymentType = detailType === 'resort' ? 'accommodation' : detailType
 
+  const allowedTargets = ALLOWED_TRANSITIONS[status] ?? []
+
+  const invalidate = () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.bookingByReference(reference) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.pickleballBooking(reference) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.activityBooking(reference) })
+    queryClient.invalidateQueries({ queryKey: queryKeys.adminBookings() })
+    queryClient.invalidateQueries({ queryKey: ['pickleball'] })
+    queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
+  }
+
   const run = async (newStatus: string) => {
+    if (!ALLOWED_TRANSITIONS[status]?.includes(newStatus)) {
+      toast.error('Invalid status transition.')
+      return
+    }
     setBusy(true)
     try {
       if (newStatus === 'confirmed' && status === 'pending') {
@@ -353,12 +382,30 @@ function BookingStatusActions({
         await updateActivityBookingStatus(bookingId, newStatus as 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'rejected')
       }
       toast.success('Booking status updated.')
+      invalidate()
       onChanged()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update status.')
     } finally {
       setBusy(false)
+      setConfirmOpen(false)
+      setPendingStatus(null)
     }
+  }
+
+  const requestStatus = (newStatus: string) => {
+    if (!ALLOWED_TRANSITIONS[status]?.includes(newStatus)) {
+      toast.error('Invalid status transition.')
+      return
+    }
+    setPendingStatus(newStatus)
+    setConfirmOpen(true)
+  }
+
+  const statusLabel = (s: string) => {
+    if (s === 'checked_in') return detailType === 'atv' || detailType === 'billiards' ? 'Rent In' : 'Check-in'
+    if (s === 'completed') return detailType === 'atv' || detailType === 'billiards' ? 'Rent Out' : 'Check-out'
+    return s.replace('_', ' ')
   }
 
   return (
@@ -366,28 +413,65 @@ function BookingStatusActions({
       <CardHeader>
         <CardTitle className="font-display text-lg">Booking actions</CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-wrap gap-2">
-        {status === 'pending' && (
-          <>
-            <Button type="button" onClick={() => run('confirmed')} disabled={busy}>Approve</Button>
-            <Button type="button" variant="outline" onClick={() => setRejectOpen(true)} disabled={busy}>Reject</Button>
-          </>
-        )}
-        {status === 'confirmed' && (
-          <>
-            <Button type="button" onClick={() => run('checked_in')} disabled={busy}>
-              {detailType === 'atv' || detailType === 'billiards' ? 'Rent In' : 'Check-in'}
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          {status === 'pending' && (
+            <>
+              <Button type="button" onClick={() => requestStatus('confirmed')} disabled={busy}>Approve</Button>
+              <Button type="button" variant="outline" onClick={() => setRejectOpen(true)} disabled={busy}>Reject</Button>
+            </>
+          )}
+          {status === 'confirmed' && (
+            <>
+              <Button type="button" onClick={() => requestStatus('checked_in')} disabled={busy}>
+                {detailType === 'atv' || detailType === 'billiards' ? 'Rent In' : 'Check-in'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setRejectOpen(true)} disabled={busy}>Cancel</Button>
+            </>
+          )}
+          {status === 'checked_in' && (
+            <>
+              <Button type="button" onClick={() => requestStatus('completed')} disabled={busy}>
+                {detailType === 'atv' || detailType === 'billiards' ? 'Rent Out' : 'Check-out'}
+              </Button>
+              <Button type="button" variant="outline" onClick={() => requestStatus('confirmed')} disabled={busy}>
+                Undo check-in
+              </Button>
+            </>
+          )}
+          {status === 'completed' && (
+            <Button type="button" variant="outline" onClick={() => requestStatus('checked_in')} disabled={busy}>
+              {detailType === 'atv' || detailType === 'billiards' ? 'Revert to rent in' : 'Revert to check-in'}
             </Button>
-            <Button type="button" variant="outline" onClick={() => setRejectOpen(true)} disabled={busy}>Cancel</Button>
-          </>
-        )}
-        {status === 'checked_in' && (
-          <Button type="button" onClick={() => run('completed')} disabled={busy}>
-            {detailType === 'atv' || detailType === 'billiards' ? 'Rent Out' : 'Check-out'}
-          </Button>
-        )}
-        {(status === 'completed' || status === 'cancelled' || status === 'rejected') && (
-          <p className="text-sm text-muted-foreground">No further status actions available.</p>
+          )}
+          {(status === 'cancelled' || status === 'rejected') && (
+            <p className="text-sm text-muted-foreground">No further status actions available.</p>
+          )}
+        </div>
+
+        {allowedTargets.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 border-t pt-3">
+            <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Set status</span>
+            <Select value={selectedStatus} onValueChange={setSelectedStatus}>
+              <SelectTrigger className="w-[180px]">
+                <SelectValue placeholder="Choose status" />
+              </SelectTrigger>
+              <SelectContent>
+                {allowedTargets.map((s) => (
+                  <SelectItem key={s} value={s}>{statusLabel(s)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy || !selectedStatus}
+              onClick={() => selectedStatus && requestStatus(selectedStatus)}
+            >
+              Apply
+            </Button>
+          </div>
         )}
 
         {rejectOpen && (
@@ -407,6 +491,21 @@ function BookingStatusActions({
               <div className="mt-4 flex justify-end gap-2">
                 <Button variant="outline" onClick={() => { setRejectOpen(false); setRejectReason('') }} disabled={busy}>Cancel</Button>
                 <Button variant="destructive" onClick={() => run('cancelled')} disabled={busy}>Confirm reject</Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmOpen && pendingStatus && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-xl bg-background p-6 shadow-xl">
+              <h3 className="font-display text-lg font-semibold">Confirm status change</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Change status from <span className="font-semibold">{statusLabel(status)}</span> to <span className="font-semibold">{statusLabel(pendingStatus)}</span>? This will be saved to the database.
+              </p>
+              <div className="mt-4 flex justify-end gap-2">
+                <Button variant="outline" onClick={() => { setConfirmOpen(false); setPendingStatus(null) }} disabled={busy}>Cancel</Button>
+                <Button onClick={() => pendingStatus && run(pendingStatus)} loading={busy}>Confirm</Button>
               </div>
             </div>
           </div>
