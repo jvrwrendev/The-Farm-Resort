@@ -143,8 +143,8 @@ export default function AdminBookingDetailPage() {
             <Card>
               <CardHeader><CardTitle className="font-display text-lg">Court & schedule</CardTitle></CardHeader>
               <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <InfoRow icon={CalendarDays} label="Date" value={b.bookingDate} />
-                <InfoRow icon={Clock} label="Time" value={`${b.startTime} – ${b.endTime}`} />
+                <InfoRow icon={CalendarDays} label="Date" value={format(parseISO(b.bookingDate), 'MMM d, yyyy')} />
+                <InfoRow icon={Clock} label="Time" value={`${formatActivityTime(b.startTime)} – ${formatActivityTime(b.endTime)}`} />
                 <InfoRow icon={Clock} label="Duration" value={`${b.durationHours} hour(s)`} />
                 <InfoRow icon={CalendarDays} label="Hourly rate" value={formatCurrency(b.hourlyRate)} />
               </CardContent>
@@ -197,8 +197,8 @@ export default function AdminBookingDetailPage() {
             <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <InfoRow icon={CalendarDays} label="Activity" value={b.activityName} />
               <InfoRow icon={CalendarDays} label="Unit" value={b.unitName} />
-              <InfoRow icon={CalendarDays} label="Date" value={b.bookingDate} />
-              <InfoRow icon={Clock} label="Time" value={`${b.startTime} – ${b.endTime}`} />
+              <InfoRow icon={CalendarDays} label="Date" value={format(parseISO(b.bookingDate), 'MMM d, yyyy')} />
+              <InfoRow icon={Clock} label="Time" value={`${formatActivityTime(b.startTime)} – ${formatActivityTime(b.endTime)}`} />
               <InfoRow icon={Clock} label="Duration" value={`${b.durationHours} hour(s)`} />
             </CardContent>
           </Card>
