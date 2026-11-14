@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { ChevronDown, CircleDot, Gauge, Menu, Trophy, X } from 'lucide-react'
+import { ChevronDown, Menu, X } from 'lucide-react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -16,27 +16,50 @@ import { useQuery } from '@tanstack/react-query'
 import { getSettings } from '@/services/settings.service'
 import { queryKeys } from '@/lib/queryKeys'
 
-type NavItem =
-  | { type: 'link'; href: string; label: string; sectionId: string }
-  | { type: 'activities'; label: string }
+interface NavLink {
+  label: string
+  href: string
+  sectionId: string
+  route?: string
+}
 
-const navItems: NavItem[] = [
-  { type: 'link', href: '/#home', label: 'Home', sectionId: 'home' },
-  { type: 'link', href: '/#about', label: 'About', sectionId: 'about' },
-  { type: 'link', href: '/#rooms', label: 'Accommodation', sectionId: 'rooms' },
-  { type: 'activities', label: 'Activities' },
-  { type: 'link', href: '/#amenities', label: 'Amenities', sectionId: 'amenities' },
-  { type: 'link', href: '/#gallery', label: 'Gallery', sectionId: 'gallery' },
-  { type: 'link', href: '/#calendar', label: 'Availability', sectionId: 'calendar' },
-  { type: 'link', href: '/#booking-search', label: 'Find Your Reservation', sectionId: 'booking-search' },
-  { type: 'link', href: '/#policies', label: 'Policies', sectionId: 'policies' },
-  { type: 'link', href: '/#contact', label: 'Contact', sectionId: 'contact' },
+interface NavGroup {
+  label: string
+  items: NavLink[]
+}
+
+const activityLinks: NavLink[] = [
+  { label: 'Pickleball', href: '/#pickleball', sectionId: 'pickleball', route: '/pickleball' },
+  { label: 'Billiards', href: '/#billiards', sectionId: 'billiards', route: '/billiards/book' },
+  { label: 'ATV Rental', href: '/#atv', sectionId: 'atv', route: '/atv/book' },
 ]
 
-const activityLinks = [
-  { route: '/pickleball', sectionId: 'pickleball', label: 'Pickleball', icon: Trophy },
-  { route: '/billiards/book', sectionId: 'billiards', label: 'Billiards', icon: CircleDot },
-  { route: '/atv/book', sectionId: 'atv', label: 'ATV Rental', icon: Gauge },
+const navItems: Array<{ type: 'link'; item: NavLink } | { type: 'group'; group: NavGroup }> = [
+  { type: 'link', item: { label: 'Home', href: '/#home', sectionId: 'home' } },
+  {
+    type: 'group',
+    group: {
+      label: 'Stay',
+      items: [
+        { label: 'About', href: '/#about', sectionId: 'about' },
+        { label: 'Accommodation', href: '/#rooms', sectionId: 'rooms' },
+      ],
+    },
+  },
+  { type: 'group', group: { label: 'Activities', items: activityLinks } },
+  {
+    type: 'group',
+    group: {
+      label: 'Explore',
+      items: [
+        { label: 'Amenities', href: '/#amenities', sectionId: 'amenities' },
+        { label: 'Gallery', href: '/#gallery', sectionId: 'gallery' },
+        { label: 'Availability', href: '/#calendar', sectionId: 'calendar' },
+      ],
+    },
+  },
+  { type: 'link', item: { label: 'Reservations', href: '/#booking-search', sectionId: 'booking-search' } },
+  { type: 'link', item: { label: 'Contact', href: '/#contact', sectionId: 'contact' } },
 ]
 
 const observedSectionIds = [
@@ -54,12 +77,11 @@ const observedSectionIds = [
   'contact',
 ]
 
-const activitySectionIds = new Set(['pickleball', 'billiards', 'atv'])
-
 export function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const [mobileActivitiesOpen, setMobileActivitiesOpen] = useState(false)
+  const [openGroup, setOpenGroup] = useState<string | null>(null)
   const [activeSection, setActiveSection] = useState('home')
+  const [scrolled, setScrolled] = useState(false)
   const intersectionRatios = useRef(new Map<string, number>())
   const location = useLocation()
   const isLanding = location.pathname === '/'
@@ -78,7 +100,7 @@ export function Navbar() {
 
       setActiveSection(sectionId)
       setMobileOpen(false)
-      setMobileActivitiesOpen(false)
+      setOpenGroup(null)
 
       const top = target.getBoundingClientRect().top + window.scrollY - 96
       window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' })
@@ -90,6 +112,13 @@ export function Navbar() {
     },
     [isLanding, location.pathname, location.search],
   )
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
 
   useEffect(() => {
     if (!isLanding) return
@@ -129,83 +158,121 @@ export function Navbar() {
     return () => observer.disconnect()
   }, [isLanding])
 
-  const activitiesActive = isLanding && activitySectionIds.has(activeSection)
+  const isGroupActive = (group: NavGroup) =>
+    isLanding && group.items.some((item) => item.sectionId === activeSection)
+
+  const handleItemClick = (event: React.MouseEvent, item: NavLink) => {
+    if (isLanding && item.sectionId && document.getElementById(item.sectionId)) {
+      event.preventDefault()
+      scrollToSection(item.sectionId)
+      return
+    }
+    if (!isLanding && item.route) {
+      setMobileOpen(false)
+      setOpenGroup(null)
+    }
+  }
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 print:hidden">
-      <nav className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mt-4 flex items-center justify-between rounded-2xl border border-white/10 bg-background/70 px-4 py-3 shadow-lg backdrop-blur-xl">
-          <Link to="/" className="flex min-w-0 items-center gap-2">
-            <img src={BRAND_LOGO_URL} alt={BRAND_LOGO_ALT} className="h-8 w-8 shrink-0 rounded-md object-cover" />
+    <header className="fixed inset-x-0 top-0 z-50 print:hidden">
+      <nav
+        className={cn(
+          'mx-auto max-w-7xl px-4 transition-all duration-300 ease-out sm:px-6 lg:px-8',
+          scrolled ? 'mt-0' : 'mt-4',
+        )}
+      >
+        <div
+          className={cn(
+            'flex items-center justify-between px-4 transition-all duration-300 ease-out sm:px-5',
+            scrolled
+              ? 'h-16 rounded-2xl border border-border/70 bg-background/95 shadow-lg shadow-black/5 backdrop-blur-xl'
+              : 'h-20 rounded-2xl border border-white/10 bg-background/70 shadow-lg backdrop-blur-xl',
+          )}
+        >
+          <Link to="/" className="group flex min-w-0 items-center gap-2.5">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-primary/10 transition-transform duration-300 group-hover:scale-105">
+              <img src={BRAND_LOGO_URL} alt={BRAND_LOGO_ALT} className="h-9 w-9 object-cover" />
+            </span>
             <span className="hidden font-display text-lg font-semibold tracking-tight sm:inline">
               {BRAND_NAME}
             </span>
           </Link>
 
           {showPublicNav && (
-            <div className="hidden lg:flex items-center gap-1.5 xl:gap-6">
-              {navItems.map((item) =>
-                item.type === 'activities' ? (
-                  <DropdownMenu key={item.label}>
+            <div className="hidden items-center gap-1 lg:flex">
+              {navItems.map((entry) =>
+                entry.type === 'link' ? (
+                  <a
+                    key={entry.item.href}
+                    href={entry.item.href}
+                    aria-current={
+                      isLanding && activeSection === entry.item.sectionId ? 'location' : undefined
+                    }
+                    onClick={(event) => handleItemClick(event, entry.item)}
+                    className={cn(
+                      'rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                      isLanding && activeSection === entry.item.sectionId
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    {entry.item.label}
+                  </a>
+                ) : (
+                  <DropdownMenu key={entry.group.label}>
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
                         className={cn(
-                          'group relative inline-flex items-center gap-1 whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-                          activitiesActive &&
-                            'text-foreground after:absolute after:-bottom-2 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-primary after:content-["_"]',
+                          'group inline-flex items-center gap-1 rounded-full px-3.5 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+                          isGroupActive(entry.group)
+                            ? 'bg-primary/10 text-primary'
+                            : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                         )}
                       >
-                        {item.label}
-                        <ChevronDown className="h-3.5 w-3.5 transition-transform group-data-[state=open]:rotate-180" />
+                        {entry.group.label}
+                        <ChevronDown className="h-3.5 w-3.5 transition-transform duration-200 group-data-[state=open]:rotate-180" />
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center" className="min-w-48">
-                      {activityLinks.map((activity) => (
+                    <DropdownMenuContent
+                      align="start"
+                      sideOffset={10}
+                      className="min-w-56 rounded-xl border-border/60 p-1.5 shadow-lg"
+                    >
+                      {entry.group.items.map((item) =>
                         isLanding ? (
                           <DropdownMenuItem
-                            key={activity.sectionId}
+                            key={item.sectionId}
+                            onSelect={() => scrollToSection(item.sectionId)}
                             className={cn(
-                              activeSection === activity.sectionId &&
-                                'bg-accent text-accent-foreground',
+                              'flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm',
+                              activeSection === item.sectionId && 'bg-primary/10 text-primary',
                             )}
-                            onSelect={() => scrollToSection(activity.sectionId)}
                           >
-                            <activity.icon className="h-4 w-4 text-primary" />
-                            {activity.label}
+                            {item.label}
                           </DropdownMenuItem>
-                        ) : (
-                          <DropdownMenuItem key={activity.sectionId} asChild>
-                            <Link to={activity.route}>
-                              <activity.icon className="h-4 w-4 text-primary" />
-                              {activity.label}
+                        ) : item.route ? (
+                          <DropdownMenuItem key={item.sectionId} asChild>
+                            <Link
+                              to={item.route}
+                              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm"
+                            >
+                                {item.label}
                             </Link>
                           </DropdownMenuItem>
-                        )
-                      ))}
+                        ) : (
+                          <DropdownMenuItem key={item.sectionId} asChild>
+                            <a
+                              href={item.href}
+                              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm"
+                            >
+                                {item.label}
+                            </a>
+                          </DropdownMenuItem>
+                        ),
+                      )}
                     </DropdownMenuContent>
                   </DropdownMenu>
-                ) : (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'relative whitespace-nowrap text-sm font-medium text-muted-foreground transition-colors hover:text-foreground',
-                      isLanding &&
-                        activeSection === item.sectionId &&
-                        'text-foreground after:absolute after:-bottom-2 after:left-0 after:h-0.5 after:w-full after:rounded-full after:bg-primary after:content-["_"]',
-                    )}
-                    aria-current={
-                      isLanding && activeSection === item.sectionId ? 'location' : undefined
-                    }
-                    onClick={(event) => {
-                      if (!isLanding) return
-                      event.preventDefault()
-                      scrollToSection(item.sectionId)
-                    }}
-                  >
-                    {item.label}
-                  </a>
                 ),
               )}
             </div>
@@ -214,12 +281,13 @@ export function Navbar() {
           <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
             {showPublicNav && (
               <button
-                className="lg:hidden p-2"
-                  onClick={() => {
-                    setMobileOpen(!mobileOpen)
-                    if (mobileOpen) setMobileActivitiesOpen(false)
-                  }}
-                aria-label="Toggle menu"
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground lg:hidden"
+                onClick={() => {
+                  setMobileOpen(!mobileOpen)
+                  if (mobileOpen) setOpenGroup(null)
+                }}
+                aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+                aria-expanded={mobileOpen}
               >
                 {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
               </button>
@@ -230,101 +298,115 @@ export function Navbar() {
         <AnimatePresence>
           {mobileOpen && showPublicNav && (
             <motion.div
-              initial={{ opacity: 0, y: -10 }}
+              initial={{ opacity: 0, y: -12 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="mt-2 rounded-2xl border bg-background/95 backdrop-blur-xl p-4 lg:hidden"
+              exit={{ opacity: 0, y: -12 }}
+              transition={{ duration: 0.2, ease: 'easeOut' }}
+              className="mt-2 max-h-[70vh] overflow-y-auto rounded-2xl border border-border/60 bg-background/95 p-3 shadow-xl backdrop-blur-xl lg:hidden"
             >
-              {navItems.map((item) =>
-                item.type === 'activities' ? (
-                  <div key={item.label}>
+              {navItems.map((entry) =>
+                entry.type === 'link' ? (
+                  <a
+                    key={entry.item.href}
+                    href={entry.item.href}
+                    aria-current={
+                      isLanding && activeSection === entry.item.sectionId ? 'location' : undefined
+                    }
+                    onClick={(event) => {
+                      handleItemClick(event, entry.item)
+                      if (!isLanding) setMobileOpen(false)
+                    }}
+                    className={cn(
+                      'block rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                      isLanding && activeSection === entry.item.sectionId
+                        ? 'bg-primary/10 text-primary'
+                        : 'text-muted-foreground hover:bg-muted hover:text-foreground',
+                    )}
+                  >
+                    {entry.item.label}
+                  </a>
+                ) : (
+                  <div key={entry.group.label} className="mb-1">
                     <button
                       type="button"
                       className={cn(
-                        'flex w-full items-center justify-between rounded-lg px-2 py-2 text-sm font-medium transition-colors',
-                        activitiesActive && 'bg-primary/10 text-primary',
+                        'flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+                        isGroupActive(entry.group)
+                          ? 'bg-primary/10 text-primary'
+                          : 'text-muted-foreground hover:bg-muted hover:text-foreground',
                       )}
-                      aria-expanded={mobileActivitiesOpen}
-                      aria-controls="mobile-activities-menu"
-                      onClick={() => setMobileActivitiesOpen((open) => !open)}
+                      aria-expanded={openGroup === entry.group.label}
+                      aria-controls={`mobile-group-${entry.group.label}`}
+                      onClick={() =>
+                        setOpenGroup((current) =>
+                          current === entry.group.label ? null : entry.group.label,
+                        )
+                      }
                     >
-                      {item.label}
+                      {entry.group.label}
                       <ChevronDown
-                        className={`h-4 w-4 transition-transform ${
-                          mobileActivitiesOpen ? 'rotate-180' : ''
-                        }`}
+                        className={cn(
+                          'h-4 w-4 transition-transform duration-200',
+                          openGroup === entry.group.label && 'rotate-180',
+                        )}
                       />
                     </button>
                     <AnimatePresence initial={false}>
-                      {mobileActivitiesOpen && (
+                      {openGroup === entry.group.label && (
                         <motion.div
-                          id="mobile-activities-menu"
+                          id={`mobile-group-${entry.group.label}`}
                           initial={{ height: 0, opacity: 0 }}
                           animate={{ height: 'auto', opacity: 1 }}
                           exit={{ height: 0, opacity: 0 }}
-                          className="overflow-hidden border-l border-border pl-3"
+                          transition={{ duration: 0.2, ease: 'easeOut' }}
+                          className="overflow-hidden border-l border-border pl-2"
                         >
-                          {activityLinks.map((activity) => (
+                          {entry.group.items.map((item) =>
                             isLanding ? (
                               <button
-                                key={activity.sectionId}
+                                key={item.sectionId}
                                 type="button"
                                 className={cn(
-                                  'flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left text-sm text-muted-foreground transition-colors hover:text-foreground',
-                                  activeSection === activity.sectionId &&
-                                    'bg-primary/10 text-primary',
+                                  'flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+                                  activeSection === item.sectionId && 'bg-primary/10 text-primary',
                                 )}
                                 aria-current={
-                                  activeSection === activity.sectionId ? 'location' : undefined
+                                  activeSection === item.sectionId ? 'location' : undefined
                                 }
-                                onClick={() => scrollToSection(activity.sectionId)}
+                                onClick={() => scrollToSection(item.sectionId)}
                               >
-                                <activity.icon className="h-4 w-4 text-primary" />
-                                {activity.label}
+                                    {item.label}
                               </button>
-                            ) : (
+                            ) : item.route ? (
                               <Link
-                                key={activity.sectionId}
-                                to={activity.route}
-                                className="flex items-center gap-2.5 rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                                key={item.sectionId}
+                                to={item.route}
+                                className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                                 onClick={() => {
                                   setMobileOpen(false)
-                                  setMobileActivitiesOpen(false)
+                                  setOpenGroup(null)
                                 }}
                               >
-                                <activity.icon className="h-4 w-4 text-primary" />
-                                {activity.label}
+                                    {item.label}
                               </Link>
-                            )
-                          ))}
+                            ) : (
+                              <a
+                                key={item.sectionId}
+                                href={item.href}
+                                className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                onClick={() => {
+                                  setMobileOpen(false)
+                                  setOpenGroup(null)
+                                }}
+                              >
+                                    {item.label}
+                              </a>
+                            ),
+                          )}
                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>
-                ) : (
-                  <a
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      'block rounded-lg px-2 py-2 text-sm font-medium transition-colors',
-                      isLanding &&
-                        activeSection === item.sectionId &&
-                        'bg-primary/10 text-primary',
-                    )}
-                    aria-current={
-                      isLanding && activeSection === item.sectionId ? 'location' : undefined
-                    }
-                    onClick={(event) => {
-                      if (isLanding) {
-                        event.preventDefault()
-                        scrollToSection(item.sectionId)
-                      } else {
-                        setMobileOpen(false)
-                      }
-                    }}
-                  >
-                    {item.label}
-                  </a>
                 ),
               )}
             </motion.div>
