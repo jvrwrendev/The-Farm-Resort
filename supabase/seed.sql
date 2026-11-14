@@ -187,3 +187,38 @@ begin
       is_active  = true,
       updated_at = now();
 end $$;
+
+-- 4. Pickleball courts (seeded in migration 000006, repeated here for completeness)
+insert into public.pickleball_courts (name, tagline, description, image_url, hourly_rate, weekday_rate, weekend_rate, max_players, surface, is_covered, amenities, is_available, is_active, open_time, close_time)
+values
+  ('Garden Court', 'Shaded and serene', 'A relaxed outdoor court tucked beside the gardens.', null, 500, 500, 600, 4, 'Outdoor acrylic', false, array['Garden shade','Court lighting','Courtside seating','Water station'], true, true, '07:00', '21:00'),
+  ('Center Court', 'The main stage', 'Our signature outdoor court with a wide playing area.', null, 600, 600, 700, 4, 'Outdoor acrylic', false, array['Tournament markings','Court lighting','Spectator seating','Scoreboard'], true, true, '07:00', '21:00'),
+  ('Covered Court', 'Play through any weather', 'A fully covered court for sunny afternoons and sudden showers.', null, 750, 750, 850, 4, 'Covered acrylic', true, array['All-weather cover','Fans and lighting','Spectator seating','Equipment rental'], true, true, '07:00', '21:00')
+on conflict do nothing;
+
+-- 5. Activities (seeded in migration 000007)
+insert into public.activities (type, name, description, hourly_rate, weekday_rate, weekend_rate, max_players, is_available, is_active, open_time, close_time)
+values
+  ('billiards', 'Billiards Table', 'Enjoy a relaxed game of pool in the clubhouse.', 300, 300, 350, 4, true, true, '08:00', '22:00'),
+  ('atv', 'ATV Rental', 'Explore the farm trails on a guided ATV ride.', 800, 800, 900, 2, true, true, '08:00', '18:00')
+on conflict do nothing;
+
+-- 6. Payment settings singleton (seeded in migration 000013)
+insert into public.payment_settings (id) values (1) on conflict (id) do nothing;
+
+-- 7. Activity units (seeded in migration 000010)
+insert into public.activity_units (
+  activity_type, name, identifier, description, image_url,
+  hourly_rate, weekday_rate, weekend_rate, max_players, status, is_active, sort_order
+)
+select
+  a.type,
+  case when a.type = 'atv' then 'ATV ' || gs.n::text else 'Table ' || gs.n::text end,
+  case when a.type = 'atv' then 'ATV-' || lpad(gs.n::text, 2, '0') else 'TBL-' || lpad(gs.n::text, 2, '0') end,
+  a.description, a.image_url, a.hourly_rate, a.weekday_rate, a.weekend_rate,
+  greatest(1, a.max_players),
+  case when a.is_available and a.is_active then 'available' else 'maintenance' end,
+  a.is_active, gs.n
+from public.activities a
+cross join lateral generate_series(1, greatest(1, coalesce(a.inventory_count, 1))) as gs(n)
+where not exists (select 1 from public.activity_units u where u.activity_type = a.type);
