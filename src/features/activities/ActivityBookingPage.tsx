@@ -191,7 +191,7 @@ export default function ActivityBookingPage({
       bookings.filter(
         (booking) =>
           booking.bookingDate === bookingDate &&
-          ['pending', 'confirmed', 'completed'].includes(booking.status),
+          ['pending', 'confirmed', 'checked_in', 'completed'].includes(booking.status),
       ),
     enabled: Boolean(activity && bookingDate),
   })

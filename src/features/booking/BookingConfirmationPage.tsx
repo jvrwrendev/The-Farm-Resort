@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import {
   CalendarCheck2,
@@ -18,7 +18,6 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getBookingByReference } from '@/services/booking.service'
 import { getPaymentForBooking } from '@/services/payment.service'
-import { PaymentCheckout } from '@/features/payment/PaymentCheckout'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
 
@@ -38,7 +37,6 @@ function DetailRow({ icon: Icon, label, value }: { icon: React.ComponentType<{ c
 
 export default function BookingConfirmationPage() {
   const { reference = '' } = useParams()
-  const queryClient = useQueryClient()
 
   const { data: booking, isLoading } = useQuery({
     queryKey: queryKeys.bookingByReference(reference),
@@ -158,7 +156,7 @@ export default function BookingConfirmationPage() {
                           ? 'Rejected — please resubmit'
                           : payment?.status === 'pending_verification' || booking.paymentStatus === 'pending_verification'
                             ? 'Pending verification'
-                            : 'Down payment required'}
+                            : 'Pending verification'}
                     </Badge>
                   </div>
                   {payment?.status === 'verified' && (
@@ -177,18 +175,6 @@ export default function BookingConfirmationPage() {
                 </p>
               </CardContent>
             </Card>
-
-            {(!payment || payment.status !== 'verified') && (
-              <PaymentCheckout
-                bookingType="accommodation"
-                bookingReference={booking.bookingReference}
-                totalAmount={booking.totalAmount}
-                onSubmitted={() => {
-                  queryClient.invalidateQueries({ queryKey: ['payment', 'accommodation', reference] })
-                  queryClient.invalidateQueries({ queryKey: queryKeys.bookingByReference(reference) })
-                }}
-              />
-            )}
 
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-center">
               <Button asChild>

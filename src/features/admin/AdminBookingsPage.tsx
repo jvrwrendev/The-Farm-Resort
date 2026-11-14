@@ -171,6 +171,10 @@ export default function AdminBookingsPage() {
       queryClient.invalidateQueries({ queryKey: ['pickleball'] })
       queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
       queryClient.invalidateQueries({ queryKey: ['payment-records'] })
+      queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+      queryClient.invalidateQueries({ queryKey: ['availability'] })
+      queryClient.invalidateQueries({ queryKey: ['pickleball', 'occupancy'] })
+      queryClient.invalidateQueries({ queryKey: ['activity-day-bookings'] })
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to update status.')
     }

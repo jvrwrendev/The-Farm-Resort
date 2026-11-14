@@ -27,6 +27,9 @@ import { cn, getInitials } from '@/lib/utils'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bell } from 'lucide-react'
 import { listNotifications, markAsRead, markAllAsRead, type Notification } from '@/services/notification.service'
+import { getBookings } from '@/services/admin.service'
+import { listPickleballBookings } from '@/services/pickleballBooking.service'
+import { listActivityBookings } from '@/services/activity.service'
 
 const NAV_SECTIONS = [
   {
@@ -185,6 +188,25 @@ export function AdminLayout({ children, title }: { children: ReactNode; title?: 
   })
   const unreadCount = notifications.filter((n) => !n.isRead).length
 
+  const { data: pendingBookings = [] } = useQuery({
+    queryKey: ['pending-bookings-summary'],
+    queryFn: async () => {
+      const [resort, pickleball, billiards, atv] = await Promise.all([
+        getBookings({ status: 'pending' }),
+        listPickleballBookings().then((rows) => rows.filter((b) => b.status === 'pending')),
+        listActivityBookings('billiards').then((rows) => rows.filter((b) => b.status === 'pending')),
+        listActivityBookings('atv').then((rows) => rows.filter((b) => b.status === 'pending')),
+      ])
+      return [
+        ...resort.map((b) => ({ type: 'accommodation' as const, reference: b.bookingReference, customer: b.customerName, date: b.checkIn, status: b.status })),
+        ...pickleball.map((b) => ({ type: 'pickleball' as const, reference: b.reference, customer: b.customerName, date: b.bookingDate, status: b.status })),
+        ...billiards.map((b) => ({ type: 'billiards' as const, reference: b.reference, customer: b.customerName, date: b.bookingDate, status: b.status })),
+        ...atv.map((b) => ({ type: 'atv' as const, reference: b.reference, customer: b.customerName, date: b.bookingDate, status: b.status })),
+      ]
+    },
+    refetchInterval: 30000,
+  })
+
   useEffect(() => {
     if (!drawerOpen) return
     document.body.style.overflow = 'hidden'
@@ -275,9 +297,35 @@ export function AdminLayout({ children, title }: { children: ReactNode; title?: 
                 </button>
               </div>
             </div>
-            {notifications.length === 0 ? (
+            {pendingBookings.length > 0 && (
+              <div className="mb-3">
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Pending bookings ({pendingBookings.length})</p>
+                <div className="space-y-2">
+                  {pendingBookings.map((b) => (
+                    <button
+                      key={b.reference}
+                      type="button"
+                      onClick={() => {
+                        const type = b.type === 'accommodation' ? 'resort' : b.type
+                        navigate(`/admin/bookings/detail/${type}/${encodeURIComponent(b.reference)}`)
+                        setNotifOpen(false)
+                      }}
+                      className="w-full rounded-lg border p-3 text-left transition-colors hover:bg-muted/50"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-semibold">{b.reference}</p>
+                        <span className="text-[10px] uppercase text-muted-foreground">{b.type}</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">{b.customer} · {b.date}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {notifications.length === 0 && pendingBookings.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">No notifications yet.</p>
-            ) : (
+            ) : notifications.length > 0 ? (
               <div className="space-y-2">
                 {notifications.map((n) => (
                   <button
@@ -310,7 +358,7 @@ export function AdminLayout({ children, title }: { children: ReactNode; title?: 
                   </button>
                 ))}
               </div>
-            )}
+            ) : null}
           </div>
         </>
       )}

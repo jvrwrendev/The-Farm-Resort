@@ -158,7 +158,7 @@ export function BookingCalendar({
           const today = isToday(day)
           const state = getDayState(event, isPast, isSelected)
           const StateIcon = DAY_STATE_ICON[state]
-          const interactive = !isPast && state !== 'occupied'
+          const interactive = !isPast && state !== 'occupied' && state !== 'pending'
 
           return (
             <motion.button

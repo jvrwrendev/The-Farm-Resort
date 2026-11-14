@@ -30,7 +30,7 @@ import {
   PICKLEBALL_SETTINGS,
 } from './mockData'
 import { formatCurrency } from '@/lib/utils'
-import heroBg from '@/assets/images/hero.jpg'
+import heroBg from '@/assets/images/pickleball.jpg'
 import { listPickleballCourts } from '@/services/pickleballCourt.service'
 import { useQuery } from '@tanstack/react-query'
 import { formatTimeLabel } from './utils'

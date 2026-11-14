@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
   CalendarDays,
@@ -16,7 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getActivityBookingByReference } from '@/services/activity.service'
 import { getPaymentForBooking } from '@/services/payment.service'
-import { PaymentCheckout } from '@/features/payment/PaymentCheckout'
 import type { ActivityBookingStatus } from './types'
 import { formatBookingDate, formatTimeLabel } from './utils'
 import { queryKeys } from '@/lib/queryKeys'
@@ -45,7 +44,6 @@ const STATUS_LABELS: Record<ActivityBookingStatus, string> = {
 
 export default function ActivityConfirmationPage() {
   const { reference = '' } = useParams<{ reference: string }>()
-  const queryClient = useQueryClient()
 
   const { data: booking, isLoading } = useQuery({
     queryKey: queryKeys.activityBooking(reference),
@@ -204,7 +202,6 @@ export default function ActivityConfirmationPage() {
 
                 <p className="rounded-xl border border-primary/15 bg-primary/5 px-4 py-4 text-sm text-muted-foreground">
                   Our team will contact you at {booking.contactNumber} or {booking.email} to confirm.
-                  A 50% GCash down payment is required to secure this reservation.
                 </p>
               </CardContent>
             </Card>
@@ -255,20 +252,6 @@ export default function ActivityConfirmationPage() {
                 )}
               </CardContent>
             </Card>
-
-            {(!payment || payment.status !== 'verified') && (
-              <div className="mt-6">
-                <PaymentCheckout
-                  bookingType={booking.activityType}
-                  bookingReference={booking.reference}
-                  totalAmount={booking.totalAmount}
-                  onSubmitted={() => {
-                    queryClient.invalidateQueries({ queryKey: ['payment', 'activity', reference] })
-                    queryClient.invalidateQueries({ queryKey: queryKeys.activityBooking(reference) })
-                  }}
-                />
-              </div>
-            )}
 
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               <Button asChild>

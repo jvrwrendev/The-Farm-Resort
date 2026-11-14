@@ -34,9 +34,11 @@ import {
 } from '@/components/ui/table'
 import { PageHeading, StatCard, StatusBadge } from '@/features/admin/components'
 import { getRangePresets, getReportData } from '@/services/admin.service'
+import { listPickleballBookings } from '@/services/pickleballBooking.service'
+import { listActivityBookings } from '@/services/activity.service'
 import { queryKeys } from '@/lib/queryKeys'
 import { formatCurrency } from '@/lib/utils'
-import type { ReportRange } from '@/types'
+import type { AdminBookingStatus, ReportRange } from '@/types'
 
 type PresetKey = 'today' | 'week' | 'month' | 'year' | 'custom'
 
@@ -56,6 +58,35 @@ export default function AdminReportsPage() {
     queryFn: () => getReportData(range),
     enabled: !!range.from && !!range.to,
   })
+
+  const { data: pickleballBookings = [] } = useQuery({
+    queryKey: ['pickleball', 'bookings', 'all'],
+    queryFn: () => listPickleballBookings(),
+  })
+  const { data: billiardsBookings = [] } = useQuery({
+    queryKey: ['activity-bookings', 'billiards', 'all'],
+    queryFn: () => listActivityBookings('billiards'),
+  })
+  const { data: atvBookings = [] } = useQuery({
+    queryKey: ['activity-bookings', 'atv', 'all'],
+    queryFn: () => listActivityBookings('atv'),
+  })
+
+  const activityReport = useMemo(() => {
+    const inRange = (d: string) => d >= range.from && d <= range.to
+    const all = [
+      ...pickleballBookings.map((b) => ({ type: 'Pickleball', ref: b.reference, name: b.customerName, date: b.bookingDate, time: `${b.startTime} – ${b.endTime}`, total: b.totalAmount, status: b.status })),
+      ...billiardsBookings.map((b) => ({ type: 'Billiards', ref: b.reference, name: b.customerName, date: b.bookingDate, time: `${b.startTime} – ${b.endTime}`, total: b.totalAmount, status: b.status })),
+      ...atvBookings.map((b) => ({ type: 'ATV Rental', ref: b.reference, name: b.customerName, date: b.bookingDate, time: `${b.startTime} – ${b.endTime}`, total: b.totalAmount, status: b.status })),
+    ].filter((b) => inRange(b.date))
+    const totalBookings = all.length
+    const confirmed = all.filter((b) => b.status === 'confirmed' || b.status === 'checked_in').length
+    const completed = all.filter((b) => b.status === 'completed').length
+    const cancelled = all.filter((b) => b.status === 'cancelled' || b.status === 'rejected').length
+    const revenue = all.filter((b) => b.status !== 'cancelled' && b.status !== 'rejected').reduce((s, b) => s + b.total, 0)
+    const upcoming = all.filter((b) => b.status === 'pending' || b.status === 'confirmed').sort((a, b) => a.date.localeCompare(b.date)).slice(0, 8)
+    return { totalBookings, confirmed, completed, cancelled, revenue, upcoming }
+  }, [range.from, range.to, pickleballBookings, billiardsBookings, atvBookings])
 
   const presetButtons: PresetKey[] = ['today', 'week', 'month', 'year', 'custom']
 
@@ -229,6 +260,64 @@ export default function AdminReportsPage() {
               )}
             </TableBody>
           </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="font-display text-lg">Other activities report</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard title="Activity Bookings" value={activityReport.totalBookings} icon={CalendarCheck2} />
+            <StatCard title="Confirmed" value={activityReport.confirmed} icon={BadgeCheck} />
+            <StatCard title="Completed" value={activityReport.completed} icon={BadgeCheck} />
+            <StatCard title="Cancelled" value={activityReport.cancelled} icon={XCircle} />
+          </div>
+          <div className="flex items-center justify-between rounded-xl border bg-muted/30 p-4">
+            <span className="text-sm text-muted-foreground">Activity revenue</span>
+            <span className="font-display text-2xl font-bold text-primary">{formatCurrency(activityReport.revenue)}</span>
+          </div>
+
+          <div>
+            <h3 className="mb-2 font-display text-base font-semibold">Upcoming activity reservations</h3>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Reference</TableHead>
+                  <TableHead>Guest</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Date</TableHead>
+                  <TableHead>Time</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activityReport.upcoming.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="py-8 text-center text-muted-foreground">
+                      No upcoming activity reservations.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  activityReport.upcoming.map((b) => (
+                    <TableRow key={b.ref}>
+                      <TableCell className="font-medium">{b.ref}</TableCell>
+                      <TableCell>{b.name}</TableCell>
+                      <TableCell>{b.type}</TableCell>
+                      <TableCell>{format(parseISO(b.date), 'MMM d, yyyy')}</TableCell>
+                      <TableCell>{b.time}</TableCell>
+                      <TableCell>{formatCurrency(b.total)}</TableCell>
+                      <TableCell>
+                        <StatusBadge status={b.status as AdminBookingStatus} />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
     </div>

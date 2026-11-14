@@ -437,11 +437,11 @@ export default function AdminManualBookingDialog({ open, onOpenChange }: Props) 
                 <div className="space-y-2">
                   <Label>Start time *</Label>
                   <TimePicker12h value={actStart} onChange={setActStart} minTime={actDate === format(new Date(), 'yyyy-MM-dd') ? format(new Date(), 'HH:mm') : undefined} />
-                  {activityBookingsForDate.filter((b: ActivityBooking) => b.unitId === unitId && b.bookingDate === actDate).length > 0 && (
+                  {activityBookingsForDate.filter((b: ActivityBooking) => b.unitId === unitId && b.bookingDate === actDate && ['pending','confirmed','checked_in','completed'].includes(b.status)).length > 0 && (
                     <p className="text-xs text-muted-foreground">
                       Occupied:{' '}
                       {activityBookingsForDate
-                        .filter((b: ActivityBooking) => b.unitId === unitId && b.bookingDate === actDate)
+                        .filter((b: ActivityBooking) => b.unitId === unitId && b.bookingDate === actDate && ['pending','confirmed','checked_in','completed'].includes(b.status))
                         .map((b: ActivityBooking) => `${formatActivityTime(b.startTime)} – ${formatActivityTime(b.endTime)}`)
                         .join(', ')}
                     </p>

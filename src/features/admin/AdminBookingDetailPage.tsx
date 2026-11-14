@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase'
 import { updateBookingStatus } from '@/services/admin.service'
 import { getPickleballBookingByReference, updatePickleballBookingStatus } from '@/services/pickleballBooking.service'
 import { getActivityBookingByReference, updateActivityBookingStatus } from '@/services/activity.service'
+import { formatTimeLabel as formatActivityTime } from '@/features/activities/utils'
 import { approveBooking, completePayment, getPaymentForBooking, rejectBooking } from '@/services/payment.service'
 import { sendBookingConfirmation, getEmailLog } from '@/services/email.service'
 import type { PaymentRecord } from '@/services/payment.service'
@@ -104,7 +105,7 @@ export default function AdminBookingDetailPage() {
             </Card>
           </div>
           <div className="space-y-6">
-            <BookingStatusActions detailType="resort" reference={b.bookingReference} bookingId={b.id} status={b.status} onChanged={() => resortQuery.refetch()} />
+            <BookingStatusActions detailType="resort" reference={b.bookingReference} bookingId={b.id} status={b.status} bookingDate={b.checkIn} onChanged={() => resortQuery.refetch()} />
             <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
             <PaymentDetailsCard
               bookingType="accommodation"
@@ -157,7 +158,7 @@ export default function AdminBookingDetailPage() {
             </Card>
           </div>
           <div className="space-y-6">
-            <BookingStatusActions detailType="pickleball" reference={b.reference} bookingId={b.id} status={b.status} onChanged={() => pickleballQuery.refetch()} />
+            <BookingStatusActions detailType="pickleball" reference={b.reference} bookingId={b.id} status={b.status} bookingDate={b.bookingDate} onChanged={() => pickleballQuery.refetch()} />
             <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
             <PaymentDetailsCard
               bookingType="pickleball"
@@ -210,7 +211,7 @@ export default function AdminBookingDetailPage() {
           </Card>
         </div>
         <div className="space-y-6">
-          <BookingStatusActions detailType={b.activityType === 'atv' ? 'atv' : 'billiards'} reference={b.reference} bookingId={b.id} status={b.status} onChanged={() => activityQuery.refetch()} />
+          <BookingStatusActions detailType={b.activityType === 'atv' ? 'atv' : 'billiards'} reference={b.reference} bookingId={b.id} status={b.status} bookingDate={b.bookingDate} onChanged={() => activityQuery.refetch()} />
           <CompletePaymentButton payment={paymentQuery.data ?? null} bookingStatus={b.status} onChanged={() => paymentQuery.refetch()} />
           <PaymentDetailsCard
             bookingType={b.activityType}
@@ -327,12 +328,14 @@ function BookingStatusActions({
   reference,
   bookingId,
   status,
+  bookingDate,
   onChanged,
 }: {
   detailType: 'resort' | 'pickleball' | 'atv' | 'billiards'
   reference: string
   bookingId: string
   status: string
+  bookingDate?: string
   onChanged: () => void
 }) {
   const queryClient = useQueryClient()
@@ -347,6 +350,10 @@ function BookingStatusActions({
 
   const allowedTargets = ALLOWED_TRANSITIONS[status] ?? []
 
+  const todayManila = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })
+  const isCheckInDate = !bookingDate || bookingDate === todayManila
+  const canCheckIn = status === 'confirmed' && isCheckInDate
+
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: queryKeys.bookingByReference(reference) })
     queryClient.invalidateQueries({ queryKey: queryKeys.pickleballBooking(reference) })
@@ -354,6 +361,10 @@ function BookingStatusActions({
     queryClient.invalidateQueries({ queryKey: queryKeys.adminBookings() })
     queryClient.invalidateQueries({ queryKey: ['pickleball'] })
     queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
+    queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+    queryClient.invalidateQueries({ queryKey: ['availability'] })
+    queryClient.invalidateQueries({ queryKey: ['pickleball', 'occupancy'] })
+    queryClient.invalidateQueries({ queryKey: ['activity-day-bookings'] })
   }
 
   const run = async (newStatus: string) => {
@@ -363,6 +374,10 @@ function BookingStatusActions({
     }
     setBusy(true)
     try {
+      if (newStatus === 'checked_in' && !isCheckInDate) {
+        toast.error(`Check-in is only available on the reservation date (${bookingDate}).`)
+        return
+      }
       if (newStatus === 'confirmed' && status === 'pending') {
         await approveBooking(paymentType as 'accommodation' | 'pickleball' | 'atv' | 'billiards', reference)
         try {
@@ -424,8 +439,8 @@ function BookingStatusActions({
   }
 
   const statusLabel = (s: string) => {
-    if (s === 'checked_in') return detailType === 'atv' || detailType === 'billiards' ? 'Rent In' : 'Check-in'
-    if (s === 'completed') return detailType === 'atv' || detailType === 'billiards' ? 'Rent Out' : 'Check-out'
+    if (s === 'checked_in') return detailType !== 'resort' ? 'Time in' : 'Check-in'
+    if (s === 'completed') return detailType !== 'resort' ? 'Time out' : 'Check-out'
     return s.replace('_', ' ')
   }
 
@@ -444,25 +459,30 @@ function BookingStatusActions({
           )}
           {status === 'confirmed' && (
             <>
-              <Button type="button" onClick={() => requestStatus('checked_in')} disabled={busy}>
-                {detailType === 'atv' || detailType === 'billiards' ? 'Rent In' : 'Check-in'}
-              </Button>
-              <Button type="button" variant="outline" onClick={() => setRejectOpen(true)} disabled={busy}>Cancel</Button>
+              {canCheckIn ? (
+                <Button type="button" onClick={() => requestStatus('checked_in')} disabled={busy}>
+                  {detailType !== 'resort' ? 'Time in' : 'Check-in'}
+                </Button>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  Check-in available on {bookingDate}.
+                </p>
+              )}
             </>
           )}
           {status === 'checked_in' && (
             <>
               <Button type="button" onClick={() => requestStatus('completed')} disabled={busy}>
-                {detailType === 'atv' || detailType === 'billiards' ? 'Rent Out' : 'Check-out'}
+                {detailType !== 'resort' ? 'Time out' : 'Check-out'}
               </Button>
               <Button type="button" variant="outline" onClick={() => requestStatus('confirmed')} disabled={busy}>
-                Undo check-in
+                {detailType !== 'resort' ? 'Undo time in' : 'Undo check-in'}
               </Button>
             </>
           )}
           {status === 'completed' && (
             <Button type="button" variant="outline" onClick={() => requestStatus('checked_in')} disabled={busy}>
-              {detailType === 'atv' || detailType === 'billiards' ? 'Revert to rent in' : 'Revert to check-in'}
+              {detailType !== 'resort' ? 'Revert to time in' : 'Revert to check-in'}
             </Button>
           )}
           {(status === 'cancelled' || status === 'rejected') && (

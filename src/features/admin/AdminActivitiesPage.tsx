@@ -848,6 +848,9 @@ function AdminActivityTab({
                                   }
                                   queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
                                   queryClient.invalidateQueries({ queryKey: ['payment-records'] })
+                                  queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+                                  queryClient.invalidateQueries({ queryKey: ['availability'] })
+                                  queryClient.invalidateQueries({ queryKey: ['activity-day-bookings'] })
                                 } catch (e) {
                                   toast.error(e instanceof Error ? e.message : 'Failed to approve.')
                                 }
@@ -860,6 +863,9 @@ function AdminActivityTab({
                                   toast.success('Booking rejected.')
                                   queryClient.invalidateQueries({ queryKey: ['activity-bookings'] })
                                   queryClient.invalidateQueries({ queryKey: ['payment-records'] })
+                                  queryClient.invalidateQueries({ queryKey: ['calendar-events'] })
+                                  queryClient.invalidateQueries({ queryKey: ['availability'] })
+                                  queryClient.invalidateQueries({ queryKey: ['activity-day-bookings'] })
                                 } catch (e) {
                                   toast.error(e instanceof Error ? e.message : 'Failed to reject.')
                                 }
